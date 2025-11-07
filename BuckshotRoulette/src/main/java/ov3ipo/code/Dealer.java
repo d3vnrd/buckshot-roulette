@@ -1,14 +1,14 @@
 package ov3ipo.code;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 public class Dealer extends Entity {
-    boolean observe; // get current status of bullet when shoot is call and when magnify or beer is used
-    int lives, blanks, total; // observe current live and blank
+    Boolean observe = null; // get current status of bullet when shoot is call and when magnify or beer is used
+    int lives, blanks, total, default_health; // observe current live and blank
 
     protected Dealer(int health, int number_items) {
         super(health, number_items);
+        default_health = health;
     }
 
     public void useItem(String item, Player player, Shotgun gun) throws InterruptedException {
@@ -40,12 +40,11 @@ public class Dealer extends Entity {
                         System.out.print(".");
                         Thread.sleep(450);
                     }
-                    if (Boolean.FALSE.equals(gun.rounds.poll())) {
+                    gun.public_chamber = gun.rounds.poll();
+                    if (Boolean.FALSE.equals(gun.public_chamber)) {
                         System.out.print(" it is a blank!");
-                        gun.public_chamber = false;
                     } else {
                         System.out.print(" it is a live!");
-                        gun.public_chamber = true;
                     }
                     System.out.println();
                     Thread.sleep(1000);
@@ -80,32 +79,126 @@ public class Dealer extends Entity {
 
     // TODO: function that return the best current best action for board state
     public String bestMove(Player player, Shotgun gun) {
-        if (gun.public_chamber || observe) {
-            this.lives--;
-            this.total--;
-        } else this.total--;
+        // get information about current round
+        getRounds(gun);
 
-        List<String> actives = new LinkedList<>();
+        System.out.println(lives+ " " + total); // print current chamber status
+
+        List<String> actives = new ArrayList<>();
         for (String item : availableItems) {
             if (storage.get(item) > 0) {
                 actives.add(item);
             }
         }
+        System.out.println(actives); // print active items
 
-        if (actives.contains("cigarette") && health < player.health) {
-            actives.remove("cigarette");
+        // TODO: assert current actives items
+        // always use cigarette as soon as possible
+        if (actives.contains("cigarette") && health < default_health) {
             return "cigarette";
         } else actives.remove("cigarette");
 
-        return "";
+        // when use magnify and count of lives = 0 always shoot self
+        if (Boolean.FALSE.equals(observe) || lives == 0) return "self";
+
+        // when know next public chamber remove magnify
+        if (observe !=null && actives.contains("magnify")) actives.remove("magnify");
+
+        // do not use handcuff when amounts of lives or total bullets < 2
+        if (lives<2 || total<2 && actives.contains("handcuff")) actives.remove("handcuff");
+
+        actives.add("opt");
+        actives.add("self");
+
+        // TODO: from actives item generate an action pool
+        // generate an action pool
+        List<String> actions_pool = new ArrayList<>();
+        // multiple time use item - beer this item should always be use as much as possible
+        for (int i = 0; i<this.storage.get("beer"); i++) actions_pool.add("beer");
+        // add other items in pool
+        for (String item: new String[]{"handsaw", "magnify", "handcuff"}) {
+            if (actives.contains(item)) actions_pool.add(item);
+        }
+
+        System.out.println(actions_pool);
+
+        // get needed parameter include dmg and hit chance
+        int[] dmg = dmgCalculate(player);
+        double hit_chance = (double) lives / total;
+        if (Boolean.TRUE.equals(observe)) hit_chance = 1;
+        else if(Boolean.FALSE.equals(observe)) hit_chance = 0;
+
+        System.out.println(Arrays.toString(dmg) + " " + hit_chance);
+
+        Set<List<String>> actions_combs = possibleActions(actions_pool); // Set is an unordered collection of objects in which duplicate values cannot be stored
+        for (List<String> actions: actions_combs) System.out.println(actions);
+
+        // TODO: current problem Dealer do not use any item it has beside cigarette
+        // create a hashmap to store expected value of an action
+        Map<List<String>, Double> actionExpectedVals = new HashMap<>();
+        for (List<String> action : actions_combs) {
+            double expectedValue = expectedVal(action, lives, total, dmg, hit_chance);
+            actionExpectedVals.put(action, expectedValue);
+        }
+
+        List<String> bestAction = new ArrayList<>();
+        if (actives.contains("handcuff")) {
+            actions_pool.remove("handcuff");
+            for (List<String> action: actionExpectedVals.keySet()) {
+                if (!action.contains("handcuff")) {
+                    continue;
+                }
+
+                Hashtable<String, Integer> current_storage = storage;
+                List<String> current_pool = actions_pool;
+
+                for (String i : new String[]{"handsaw", "magnify"}) {
+                    if (action.contains(i)) {
+                        if (storage.get(i) <=1) current_pool.remove(i);
+                        current_storage.put(i, current_storage.get(i) - 1);
+                    }
+                }
+                int beerCount = (int) action.stream().filter(x -> x.equals("beer")).count();
+                current_storage.put("beer", current_storage.get("beer") - beerCount);
+
+                for (int i = 0; i<beerCount; i++) {
+                    current_pool.remove("beer");
+                }
+
+                Set<List<String>> nextActions = possibleActions(current_pool);
+                double bestLive = nextActions.stream()
+                        .mapToDouble(a -> expectedVal(a, lives - 1, total - 1, dmg, (double) (lives - 1) /(total-1)))
+                        .max()
+                        .orElse(0.0);
+
+                double bestBlank = nextActions.stream()
+                        .mapToDouble(a -> expectedVal(a, lives, total - 1, dmg, (double) lives /(total-1)))
+                        .max()
+                        .orElse(0.0);
+
+                double updatedValue = actionExpectedVals.get(action) +
+                        ((double) lives / total) * bestLive +
+                        ((double) (total - lives) / total) * bestBlank;
+
+                actionExpectedVals.put(action, updatedValue);
+            }
+            // TODO: seem to not work properly
+            bestAction = actionExpectedVals.entrySet().stream()
+                    .max(Map.Entry.comparingByValue())
+                    .map(Map.Entry::getKey)
+                    .orElse(Collections.singletonList("opt"));
+            System.out.println(bestAction);
+        }
+        return !bestAction.isEmpty() ? bestAction.getFirst() : "opt";
     }
 
     public void getRounds(Shotgun gun) {
-        this.lives = gun.lives;
-        this.blanks = gun.blanks;
-        this.total = lives + blanks;
+        lives = gun.lives;
+        blanks = gun.blanks;
+        total = lives + blanks;
     }
 
+    // Time complexity for this is O(n) since it recursive n numbers of items in actions list
     private double expectedVal(List<String> actions, int lives, int total, int[] dmg, double hit_chance) {
         double update_hit_chance;
         if (lives <= 0 || total <= 0 || lives > total) return 0;
@@ -148,6 +241,7 @@ public class Dealer extends Entity {
                 if (total > 1) {
                     return (dmg[0] * hit_chance) + (double) (dmg[1] * (lives - 1)) / (total - 1);
                 } else return dmg[0] * hit_chance;
+
             case "self":
                 double is_hit = -dmg[0] * hit_chance;
                 if (lives > 1) is_hit += (double) (dmg[1] * (lives - 1)) / (total - 1);
@@ -160,6 +254,7 @@ public class Dealer extends Entity {
         return 0;
     }
 
+    // this is O(1) only if case
     private int[] dmgCalculate(Player player) {
         int[] dmg = new int[]{1, -1};
         if (player.storage.get("handsaw") > 0) dmg[1] = -2;
@@ -170,5 +265,52 @@ public class Dealer extends Entity {
         }
         if (this.storage.get("handsaw") > 0) dmg[0] = 2;
         return dmg;
+    }
+
+    // TODO: a function that return an sequence of actions that are possible in current state
+    private Set<List<String>> possibleActions(List<String> actions_pool) {
+        Set<List<String>> actions = new HashSet<>();
+        actions.add(new ArrayList<>());  // Add empty list as one of the actions
+
+        int n = actions_pool.size();
+        for (int i = 1; i <= n; i++) {
+            List<List<String>> combs = generateCombinations(actions_pool, i);
+            for (List<String> comb : combs) {
+                boolean valid = true;
+                boolean magnify = false;
+                for (String item : comb) {
+                    if (item.equals("magnify")) {
+                        magnify = true;
+                    }
+                    if (item.equals("beer") && magnify) {
+                        valid = false;
+                        break;
+                    }
+                }
+                if (valid) {
+                    actions.add(comb);
+                }
+            }
+        }
+        return actions;
+    }
+
+    private List<List<String>> generateCombinations(List<String> actionPool, int k) {
+        List<List<String>> result = new ArrayList<>();
+        generateCombinationsHelper(actionPool, k, 0, new ArrayList<>(), result);
+        return result;
+    }
+
+    private static void generateCombinationsHelper(List<String> actionPool, int k, int start, List<String> current, List<List<String>> result) {
+        if (current.size() == k) {
+            result.add(new ArrayList<>(current));
+            return;
+        }
+
+        for (int i = start; i < actionPool.size(); i++) {
+            current.add(actionPool.get(i));
+            generateCombinationsHelper(actionPool, k, i + 1, current, result);
+            current.removeLast();  // Backtrack
+        }
     }
 }

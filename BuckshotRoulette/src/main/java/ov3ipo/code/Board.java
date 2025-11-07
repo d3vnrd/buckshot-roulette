@@ -52,8 +52,8 @@ public class Board {
             }
 
             showBoard();
-            if(player.health>0) playerTurn();
-            if(dealer.health>0) dealerTurn();
+            if(player.health>0 && dealer.health>0) playerTurn();
+            if(dealer.health>0 && player.health>0) dealerTurn();
         }
     }
 
@@ -70,7 +70,6 @@ public class Board {
             gun.loadBullets();
             player.addRandomItems();
             dealer.addRandomItems();
-            dealer.getRounds(gun);
         }
 
         System.out.println(name + ": " + "♥ ".repeat(this.player.health));
@@ -129,6 +128,7 @@ public class Board {
     }
 
     private void dealerTurn() throws InterruptedException {
+
         if (dealer.miss >= 1) {
             System.out.println("Dealer turn is skipped...");
             Thread.sleep(1000);
@@ -136,11 +136,12 @@ public class Board {
             return;
         }
 
+        if (dealer.endTurn) dealer.endTurn = false;
         System.out.println("Dealer turn...");
         Thread.sleep(500);
 
         // get best action base on current state of the game only end turn when shoot
-        while (!player.endTurn) {
+        while (!dealer.endTurn) {
             String action = dealer.bestMove(player, gun);
             switch (action) {
                 case "opt":
@@ -149,6 +150,7 @@ public class Board {
                     gun.shoot(player);
                     // turn end only when shoot
                     dealer.endTurn = true;
+                    dealer.observe = null;
                     break;
                 case "self":
                     System.out.println("Dealer choose to shoot himself!");
@@ -156,6 +158,7 @@ public class Board {
                     if (!gun.shoot(dealer)) player.miss++;
                     // turn end only when shoot
                     dealer.endTurn = true;
+                    dealer.observe = null;
                     break;
                 case "magnify", "handsaw", "cigarette", "beer", "handcuff":
                     dealer.useItem(action, player, gun);

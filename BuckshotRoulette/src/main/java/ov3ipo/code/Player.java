@@ -33,12 +33,11 @@ public class Player extends Entity {
                             System.out.print(".");
                             Thread.sleep(450);
                         }
-                        if (Boolean.FALSE.equals(gun.rounds.poll())) {
+                        gun.public_chamber = gun.rounds.poll();
+                        if (Boolean.FALSE.equals(gun.public_chamber)) {
                             System.out.print(" it is a blank!");
-                            gun.public_chamber = false;
                         } else {
                             System.out.print(" it is a live!");
-                            gun.public_chamber = true;
                         }
                         System.out.println();
                         Thread.sleep(1000);

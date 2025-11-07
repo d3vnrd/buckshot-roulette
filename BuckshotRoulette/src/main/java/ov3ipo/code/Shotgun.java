@@ -6,7 +6,7 @@ public class Shotgun {
     Queue<Boolean> rounds;
     Random rand;
     int damage, lives, blanks;
-    boolean public_chamber;
+    Boolean public_chamber = null;
 
     public Shotgun() {
         rounds = new LinkedList<>();
@@ -36,10 +36,15 @@ public class Shotgun {
             System.out.println("\nBOOM!!!\n");
             Thread.sleep(1000);
             public_chamber = true;
+            lives--;
         } else {
+            if (damage == 2) {
+                resetDamage();
+            }
             System.out.println("\nCLICK!\n");
             Thread.sleep(1000);
             public_chamber = false;
+            blanks--;
         }
         return public_chamber;
     }
