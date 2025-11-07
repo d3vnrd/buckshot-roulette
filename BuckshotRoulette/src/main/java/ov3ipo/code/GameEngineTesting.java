@@ -5,8 +5,8 @@ import java.util.Random;
 
 class GameEngineTesting{
 
-    public static void main (String[] args) {
-
+    public static void main (String[] args) throws Exception {
+        PlayRoulette();
     }
 
     static void PlayRoulette() throws Exception {

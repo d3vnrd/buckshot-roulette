@@ -1,6 +1,5 @@
 package ov3ipo.code;
 
-import java.io.*;
 import java.util.*;
 
 public class Game {
@@ -14,7 +13,7 @@ public class Game {
     Scanner scanner;
     String name;
     String topLine = "\nx" + "-".repeat(39) + "♥♦BUCKSHOTxROULETTE♣♠" + "-".repeat(39) + "x\n";
-    String bottomLine = "\nx" + "-".repeat(99)+ "x";
+    String bottomLine = "\nx" + "-".repeat(100)+ "x";
 
     public Game() {
         this.exit = false;
@@ -24,23 +23,23 @@ public class Game {
     }
 
     public void enterStage1() throws InterruptedException {
+        System.out.println(("\n".repeat(5)));
         showWaiver();
         askName();
-
-        this.gun = new Shotgun();
-        this.player = new Player(2);
-        this.dealer = new Dealer(2);
+        reset(2,0);
 
         while (dealer.health > 0) {
+            System.out.println(("\n".repeat(5)));
             showBoard(nItems);
-            playerTurn();
-            dealerTurn();
+            if(player.health>0)playerTurn();
+            if(dealer.health>0)dealerTurn();
 
             // check if player health is 0
             if (player.health <= 0) {
                 System.out.println("\nDEALER WINS!\n");
                 System.out.println("YOUR LIFE IS NOW MINE!!!\n");
-                break;
+                exit();
+                return;
             }
         }
 
@@ -51,22 +50,20 @@ public class Game {
         }
     }
 
-    private void enterStage2() {
-
-        this.gun = new Shotgun();
-        this.player = new Player(4);
-        this.dealer = new Dealer(4);
-        this.nItems = 2;
+    private void enterStage2() throws InterruptedException {
+        reset(4, 2);
 
         while (dealer.health > 0) {
             showBoard(nItems);
-            playerTurn();
-            dealerTurn();
+            if(player.health>0)playerTurn();
+            if(dealer.health>0)dealerTurn();
 
             // check if player health is 0
             if (player.health <= 0) {
                 System.out.println("DEALER WINS!\n");
-                break;
+                System.out.println("YOUR LIFE IS NOW MINE!!!\n");
+                exit();
+                return;
             }
         }
         if (player.health > 0) {
@@ -76,21 +73,19 @@ public class Game {
         }
     }
 
-    private void enterStage3() {
-        this.gun = new Shotgun();
-        this.player = new Player(6);
-        this.dealer = new Dealer(6);
-        this.nItems = 6;
-
+    private void enterStage3() throws InterruptedException {
+        reset(6, 4);
         while (dealer.health > 0) {
             showBoard(nItems);
-            playerTurn();
-            dealerTurn();
+            if(player.health>0)playerTurn();
+            if(dealer.health>0)dealerTurn();
 
             // check if player health is 0
             if (player.health <= 0) {
                 System.out.println("DEALER WINS!\n");
-                break;
+                System.out.println("YOUR LIFE IS NOW MINE!!!\n");
+                exit();
+                return;
             }
         }
 
@@ -105,6 +100,15 @@ public class Game {
         }
     }
 
+    private void reset(int default_health, int number_items) {
+        gun = new Shotgun();
+        player = new Player(default_health);
+        dealer = new Dealer(default_health);
+        nItems = number_items;
+        dealer.miss = 0;
+        player.miss = 0;
+    }
+
     private void showBoard(int nItems) {
         System.out.println(topLine);
 
@@ -114,44 +118,75 @@ public class Game {
             dealer.addRandomItems(nItems);
         }
 
-        System.out.println("DEALER: " + "♥ ".repeat(this.dealer.health));
-        this.dealer.displayStorage();
-        System.out.println();
-
         System.out.println(name + ": " + "♥ ".repeat(this.player.health));
         this.player.displayStorage();
+        System.out.println();
+
+        System.out.println("DEALER: " + "♥ ".repeat(this.dealer.health));
+        this.dealer.displayStorage();
 
         System.out.println(bottomLine);
     }
 
-    private void playerTurn() {
-        System.out.print("Use (0)THE GUN || (1)AN ITEM: ");
-        int[] availableChoice = new int[]{0,1};
-        int choice = scanner.nextInt();
+    private void playerTurn() throws InterruptedException {
+        // check if current turn is missed
+        if (player.miss >= 1) {
+            System.out.println("Your turn is skipped...");
+            player.miss--;
+            return;
+        }
 
-        try {
-            if (availableChoice[choice] == 0) {
-                    System.out.print("Shoot (0)SELF  || (1)DEALER: ");
+        // reset while loop for picking item
+        if (player.endTurn) player.endTurn=false;
+
+        System.out.println("Your turn...");
+
+        while (!player.endTurn) {
+            System.out.print("Use (0)gun | (1)item: ");
+            int[] availableChoice = new int[]{0,1};
+            int choice = scanner.nextInt();
+
+            try {
+                if (availableChoice[choice] == 0) {
+                    System.out.print("Shoot (0)self | (1)dealer: ");
                     int shoot = scanner.nextInt();
-                    if (availableChoice[shoot] == 0) gun.shoot(player, player);
-                    else gun.shoot(player, dealer);
-            } else {
-                int index = 1;
-                for (String item: player.availableItems) {
-                    System.out.print("(" + index + ")" + " " + item + "\n");
-                    index++;
+                    if (availableChoice[shoot] == 0){
+                        if(!gun.shoot(player))
+                            dealer.miss++;
+                    }
+                    else gun.shoot(dealer);
+
+                    // if player shoot end turn
+                    player.endTurn=true;
+                } else {
+                    int index = 1;
+                    for (String item: player.availableItems) {
+                        System.out.print("(" + index + ") " + item + "\n");
+                        index++;
+                    }
+                    System.out.print("Pick an item: ");
+                    int itemIndex = scanner.nextInt();
+                    player.useItem(itemIndex-1, dealer, gun);
                 }
-                System.out.print("Use: ");
-                int itemIndex = scanner.nextInt();
-                player.useItem(itemIndex-1);
+            } catch (IndexOutOfBoundsException e) {
+                System.out.println("\nUh... That is not an option!\n");
+                playerTurn();
             }
-        } catch (IndexOutOfBoundsException e) {
-            System.out.println("\nUh... That is not an option!\n");
-            playerTurn();
         }
     }
 
-    private void dealerTurn() {
+    private void dealerTurn() throws InterruptedException {
+        if (dealer.miss >= 1) {
+            System.out.println("Dealer turn is skipped...");
+            Thread.sleep(1000);
+            dealer.miss--;
+            return;
+        }
+
+        if (dealer.endTurn) dealer.endTurn=false;
+
+        System.out.println("Dealer turn...");
+        dealer.getAction(player, gun);
     }
 
     private void askName() {

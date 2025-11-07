@@ -16,7 +16,7 @@ public class Main {
                 System.out.println("(1) - Enter");
                 System.out.println("(2) - Credit");
                 System.out.println("(0) - Exit");
-                System.out.println("\nx" + "-".repeat(99)+ "x");
+                System.out.println("\nx" + "-".repeat(100)+ "x");
                 System.out.print("The choice is your: ");
                 opt = scanner.nextInt();
 
