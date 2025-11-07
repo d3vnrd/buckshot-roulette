@@ -22,11 +22,14 @@ public class Main {
 
                 switch (availableChoice[opt]) {
                     case 1:
+                        board.showWaiver();
+                        Thread.sleep(3000);
+                        board.askName();
                         board.start();
                         break;
                     case 2:
                         board.showCredit();
-                        Thread.sleep(5000);
+                        Thread.sleep(3000);
                         break;
                     case 0:
                         board.exit();

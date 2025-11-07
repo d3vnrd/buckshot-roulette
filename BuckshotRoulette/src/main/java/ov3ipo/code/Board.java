@@ -22,8 +22,6 @@ public class Board {
     }
 
     public void start() throws InterruptedException {
-        showWaiver();
-        askName();
         int currentStage = 1;
         createEntities();
 
@@ -64,6 +62,7 @@ public class Board {
     private void reset() {
         this.health = 2;
         this.nItems = 0;
+        this.name = null;
     }
 
     // change health value to test
@@ -177,7 +176,7 @@ public class Board {
         }
     }
 
-    private void askName() {
+    public void askName() {
         String[] unavailableNames = new String[]{"GOD", "SATAN", "DEALER"};
         while (true) {
             System.out.print("Sign the waiver? (enter your name): ");
@@ -193,7 +192,7 @@ public class Board {
         }
     }
 
-    private void showWaiver() {
+    public void showWaiver() {
         System.out.println(topLine);
         System.out.println("INSTRUCTIONS:");
         System.out.println("    - OBJECTIVE: SURVIVE.");
@@ -213,11 +212,11 @@ public class Board {
     }
 
     public void showCredit() {
-        System.out.println("\n―――――――――――――――――――――――――――――――――");
+        System.out.println(topLine);
         System.out.println("This game is based on the actual game 'buckshot roulette'.\nIn a nutshell, this is russian roulette.\nInfo: https://en.wikipedia.org/wiki/Buckshot_Roulette\n");
         System.out.println("This is a small project of mine toward DSA course at\nInternational University HCM");
         System.out.println("Name: Nguyen Tri Tin    ID: ITDSIU21123     Class: ITIT22IU11");
-        System.out.println("―――――――――――――――――――――――――――――――――");
+        System.out.println(bottomLine);
     }
 
     public void exit() {

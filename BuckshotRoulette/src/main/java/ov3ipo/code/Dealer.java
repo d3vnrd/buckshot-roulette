@@ -89,7 +89,7 @@ public class Dealer extends Entity {
             }
         }
 
-        // TODO: assert current actives items
+        // assert current actives items
         // always use cigarette as soon as possible
         if (actives.contains("cigarette") && health < default_health) {
             return "cigarette";
@@ -104,15 +104,15 @@ public class Dealer extends Entity {
         // do not use handcuff when amounts of lives or total bullets < 2
         if (lives<2 || total<2 && actives.contains("handcuff")) actives.remove("handcuff");
 
-        actives.add("opt");
-        actives.add("self");
+//        actives.add("opt");
+//        actives.add("self");
 
-        // TODO: from actives item generate an action pool
+        // from actives item generate an action pool
         // generate an action pool
         List<String> actions_pool = new ArrayList<>();
         // multiple time use item - beer this item should always be use as much as possible
         for (int i = 0; i<this.storage.get("beer"); i++) actions_pool.add("beer");
-        // add other items in pool
+        // one time use item since there is no reason to use more than 1 in one turn
         for (String item: new String[]{"handsaw", "magnify", "handcuff"}) {
             if (actives.contains(item)) actions_pool.add(item);
         }
@@ -125,8 +125,6 @@ public class Dealer extends Entity {
 
         Set<List<String>> actions_combs = possibleActions(actions_pool); // Set is an unordered collection of objects in which duplicate values cannot be stored
 
-        // TODO: current problem Dealer do not use any item it has beside cigarette
-        // PROBLEMS: hashmap does not store any new key only 1 empty list is store
         // create a hashmap to store expected value of a sequence of actions
         Map<List<String>, Double> actionValue = new HashMap<>();
         for (List<String> actions : actions_combs) {
@@ -146,7 +144,7 @@ public class Dealer extends Entity {
 
                 List<String> current_pool = new ArrayList<>(actions_pool);
 
-                for (String item : new String[]{"handsaw", "magnify"}) {
+                for (String item : Arrays.asList("handsaw", "magnify")) {
                     if (action.contains(item)) {
                         if (storage.get(item) <=1)
                             current_pool.remove(item);
@@ -178,19 +176,21 @@ public class Dealer extends Entity {
             }
         }
 
+        // time complexity?
         return actionValue.entrySet().stream()
                 .max(Map.Entry.comparingByValue())
                 .map(e -> e.getKey().isEmpty()? "opt" : e.getKey().getFirst())
                 .orElse("opt");
     }
 
-    public void getRounds(Shotgun gun) {
+    private void getRounds(Shotgun gun) {
         lives = gun.lives;
         blanks = gun.blanks;
         total = lives + blanks;
     }
 
-    // Time complexity for this is O(n) since it recursive n numbers of items in actions list
+    // TODO: function to calculate the expected value for a sequence of actions
+    // Time complexity?
     private double expectedVal(List<String> actions, int lives, int total, int[] dmg, double hit_chance) {
         double update_hit_chance;
         if (lives <= 0 || total <= 0 || lives > total) return 0;
@@ -228,20 +228,6 @@ public class Dealer extends Entity {
                     double was_blank = expectedVal(actions, lives, total - 1, dmg, update_hit_chance);
                     return (was_live * hit_chance) + (was_blank * (1 - hit_chance));
                 } else return was_live;
-
-            case "opt":
-                if (total > 1) {
-                    return (dmg[0] * hit_chance) + (double) (dmg[1] * (lives - 1)) / (total - 1);
-                } else return dmg[0] * hit_chance;
-
-            case "self":
-                double is_hit = -dmg[0] * hit_chance;
-                if (lives > 1) is_hit += (double) (dmg[1] * (lives - 1)) / (total - 1);
-                update_hit_chance = (double) lives / (total - 1);
-
-                double is_miss = expectedVal(actions, lives, total - 1, dmg, update_hit_chance) * (1 - hit_chance);
-                if (lives > 1 && total > 2) is_miss += (double) (dmg[1] * (lives - 1)) / (total - 2);
-                return is_hit + is_miss;
         }
         return 0;
     }
@@ -266,8 +252,8 @@ public class Dealer extends Entity {
 
         int n = actions_pool.size();
         for (int i = 1; i <= n; i++) {
-            List<List<String>> combs = generateCombinations(actions_pool, i);
-            for (List<String> comb : combs) {
+            List<List<String>> combs = generateCombinations(actions_pool, i); // combination generation
+            for (List<String> comb : combs) { // combination validation
                 boolean valid = true;
                 boolean magnify = false;
                 for (String item : comb) {
@@ -293,7 +279,7 @@ public class Dealer extends Entity {
         return result;
     }
 
-    private static void generateCombinationsHelper(List<String> actionPool, int k, int start, List<String> current, List<List<String>> result) {
+    private void generateCombinationsHelper(List<String> actionPool, int k, int start, List<String> current, List<List<String>> result) { // Time complexity of O(2^A*A)
         if (current.size() == k) {
             result.add(new ArrayList<>(current));
             return;

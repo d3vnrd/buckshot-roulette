@@ -15,7 +15,7 @@ public class Shotgun {
     }
 
     public void loadBullets() {
-        ArrayList<Boolean> temp = new ArrayList<>();
+        List<Boolean> temp = new ArrayList<>();
         lives = rand.nextInt(1, 4);
         blanks = rand.nextInt(1, 4);
         System.out.println(this.lives + " Lives, " + this.blanks + " Blanks\n");

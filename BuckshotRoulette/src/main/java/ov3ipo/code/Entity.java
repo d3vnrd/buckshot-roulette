@@ -5,9 +5,9 @@ import java.util.*;
 public abstract class Entity {
     protected int health, miss, number_items;
     protected boolean endTurn;
-    protected Hashtable<String, Integer> storage;
     private final Random random = new Random();
     protected String[] availableItems = new String[]{"magnify", "handsaw", "cigarette", "beer", "handcuff"};
+    protected Hashtable<String, Integer> storage;
 
     protected Entity(int health, int number_items) {
         /*
@@ -48,7 +48,7 @@ public abstract class Entity {
     }
 
     // function that check whether we can add more item to the storage
-    protected int spaceLeft() {
+    private int spaceLeft() {
         int space_left;
         int current_size = Arrays.stream(availableItems).mapToInt(item -> storage.get(item)).sum();
         int add_size = current_size + number_items;
