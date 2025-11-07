@@ -7,7 +7,9 @@ public class Main {
     public static int opt;
     public static void main(String[] args) throws InterruptedException {
         Scanner scanner = new Scanner(System.in);
-        Game buckshot = new Game(2,0);
+        Game buckshot = new Game();
+        Shotgun gun = new Shotgun();
+        Board board = new Board();
 
         try {
             do {
@@ -22,17 +24,17 @@ public class Main {
 
                 switch (opt) {
                     case 1:
-                        buckshot.enterStage1();
+                        board.start();
                         break;
                     case 2:
-                        showCredit();
+                        board.showCredit();
                         Thread.sleep(5000);
                         break;
                     case 0:
                         buckshot.exit();
                         break;
                 }
-            } while(!buckshot.exit);
+            } while(!board.exit);
         } catch (InputMismatchException e) {
             System.out.println("\nI DON'T HAVE TIME TO PLAY WITH YOU, GET OUT!!!");
         }

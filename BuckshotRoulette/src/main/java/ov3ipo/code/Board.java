@@ -2,149 +2,73 @@ package ov3ipo.code;
 
 import java.util.*;
 
-public class Game {
-    boolean exit;
-    boolean endGame;
-    int nItems;
+public class Board {
     Player player;
     Dealer dealer;
     Shotgun gun;
-    Random rand;
-    Scanner scanner;
     String name;
-    String topLine = "\nx" + "-".repeat(39) + "♥♦BUCKSHOTxROULETTE♣♠" + "-".repeat(39) + "x\n";
-    String bottomLine = "\nx" + "-".repeat(100) + "x";
+    Integer health;
+    Integer nItems;
+    Boolean exit;
+    Scanner scanner = new Scanner(System.in);
+    final String topLine = "\nx" + "-".repeat(39) + "♥♦BUCKSHOTxROULETTE♣♠" + "-".repeat(39) + "x\n";
+    final String bottomLine = "\nx" + "-".repeat(100) + "x";
 
-    public Game() {
-        exit = false;
-        endGame = false;
-        rand = new Random();
-        scanner = new Scanner(System.in);
-//        player = new Player(2);
-//        dealer = new Dealer(2);
-        gun = new Shotgun();
-        nItems = 0;
-//        dealer.miss = 0;
-//        player.miss = 0;
+    public Board() {
+        this.health = 2;
+        this.nItems = 0;
+        this.exit = false;
     }
 
     public void start() throws InterruptedException {
         showWaiver();
         askName();
-        int nextStage = 1;
-
-        while (dealer.health > 0 || player.health > 0) {
-
-            // basic call board
-            showBoard(nItems);
-            if (player.health > 0) playerTurn();
-            if (dealer.health > 0) dealerTurn();
-
-            // check if player health is 0
-            if (player.health <= 0) {
-                System.out.println("\nDEALER WINS!\n");
-                System.out.println("YOUR LIFE IS NOW MINE!!!\n");
-                exit();
-                return;
-            } else {
-                reset(4, 2);
-                System.out.println("Entering next stage...");
-            }
-        }
-    }
-
-    public void enterStage1() throws InterruptedException {
-        System.out.println(("\n".repeat(5)));
-        showWaiver();
-        askName();
-
-        while (dealer.health > 0) {
-            System.out.println(("\n".repeat(5)));
-            showBoard(nItems);
-            if (player.health > 0) playerTurn();
-            if (dealer.health > 0) dealerTurn();
-
-            // check if player health is 0
-            if (player.health <= 0) {
-                System.out.println("\nDEALER WINS!\n");
-                System.out.println("YOUR LIFE IS NOW MINE!!!\n");
-                exit();
-                return;
-            }
-        }
-
-        if (player.health > 0) {
-            System.out.println("\n" + name + " WINS!");
-            System.out.println("Processing stage II ...\n");
-            enterStage2();
-        }
-    }
-
-    private void enterStage2() throws InterruptedException {
-        reset(4, 2);
-        while (dealer.health > 0) {
-            showBoard(nItems);
-            if (player.health > 0) playerTurn();
-            if (dealer.health > 0) dealerTurn();
-
-            // check if player health is 0
-            if (player.health <= 0) {
-                System.out.println("DEALER WINS!\n");
-                System.out.println("YOUR LIFE IS NOW MINE!!!\n");
-                exit();
-                return;
-            }
-        }
-        if (player.health > 0) {
-            System.out.println("\n" + name + " WINS!");
-            System.out.println("Processing stage III ...\n");
-            enterStage3();
-        }
-    }
-
-    private void enterStage3() throws InterruptedException {
-        reset(6, 4);
-        while (dealer.health > 0) {
-            showBoard(nItems);
-            if (player.health > 0) playerTurn();
-            if (dealer.health > 0) dealerTurn();
-
-            // check if player health is 0
-            if (player.health <= 0) {
-                System.out.println("DEALER WINS!\n");
-                System.out.println("YOUR LIFE IS NOW MINE!!!\n");
-                exit();
-                return;
-            }
-        }
+        int currentStage = 1;
+        createEntities();
 
         while (true) {
-            System.out.println("\n" + name + " WINS!\n");
-            if (player.health > 0) {
-                System.out.println("Do you want to continue (y/n)?: ");
-                String opt = scanner.next();
-                if (Objects.equals(opt, "y")) return;
-                if (Objects.equals(opt, "n")) exit();
+            if (player.health <= 0) {
+                System.out.println("DEALER WINS!\n");
+                System.out.println("YOUR LIFE IS NOW MINE!!!\n");
+                return;
+            } else if (dealer.health <= 0) {
+                System.out.println("\n" + name + " WINS!");
+                health += 2;
+                nItems += 2;
+                currentStage++;
+                if (currentStage > 3) {
+                    System.out.println("ARGHH!!!...");
+                    while(true) {
+                        System.out.println("Do you want to continue (y/n)?: ");
+                        String opt = scanner.next();
+                        if (Objects.equals(opt, "y")) return;
+                        if (Objects.equals(opt, "n")) exit=true;
+                    }
+                } else {
+                    System.out.println("Processing stage " + "I".repeat(currentStage));
+                    createEntities();
+                }
             }
+
+            showBoard();
+            if(player.health>0) playerTurn();
+            if(dealer.health>0) dealerTurn();
         }
     }
 
-    private void reset(int default_health, int number_items) {
+    private void createEntities() {
         gun = new Shotgun();
-//        player = new Player(default_health);
-//        dealer = new Dealer(default_health);
-        nItems = number_items;
-        dealer.miss = 0;
-        player.miss = 0;
+        player = new Player(health, nItems);
+        dealer = new Dealer(health, nItems);
     }
 
-    private void showBoard(int nItems) {
+    private void showBoard() {
         System.out.println(topLine);
 
         if (gun.rounds.isEmpty()) {
             gun.loadBullets();
-//            player.addRandomItems(nItems);
-//            dealer.addRandomItems(nItems);
+            player.addRandomItems();
+            dealer.addRandomItems();
             dealer.getRounds(gun);
         }
 
@@ -274,7 +198,12 @@ public class Game {
         System.out.println(bottomLine);
     }
 
-    public void exit() {
-        this.exit = true;
+    public void showCredit() {
+        System.out.println("\n―――――――――――――――――――――――――――――――――");
+        System.out.println("This game is based on the actual game 'buckshot roulette'.\nIn a nutshell, this is russian roulette.\nInfo: https://en.wikipedia.org/wiki/Buckshot_Roulette\n");
+        System.out.println("This is a small project of mine toward DSA course at\nInternational University HCM");
+        System.out.println("Name: Nguyen Tri Tin    ID: ITDSIU21123     Class: ITIT22IU11");
+        System.out.println("―――――――――――――――――――――――――――――――――");
     }
+
 }
