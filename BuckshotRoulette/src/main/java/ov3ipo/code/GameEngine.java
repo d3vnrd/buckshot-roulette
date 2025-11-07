@@ -1,11 +1,20 @@
 package ov3ipo.code;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.util.*;
 import org.apache.commons.beanutils.BeanUtils;
 
-public class Player {
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+class GameEngine {
+    public void setup(){
+
+    }
+}
+class Player {
+
     private int health, magnify, cigarette, beer, handcuff, handsaw;
 
     public Player(int max_health) {
@@ -48,5 +57,11 @@ public class Player {
 
     public int sumItems() {
         return magnify + beer + handcuff + handsaw + cigarette;
+    }
+}
+
+class Dealer extends Player {
+    public Dealer(int max_health) {
+        super(max_health);
     }
 }
