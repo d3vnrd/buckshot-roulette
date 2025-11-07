@@ -1,132 +1,157 @@
 package ov3ipo.code;
 
-import java.util.Arrays;
-import java.util.Objects;
-import java.util.Random;
-import java.util.Scanner;
+import java.io.*;
+import java.util.*;
 
 public class Game {
     boolean exit;
+    int nItems;
+    Queue<Integer> turns;
     Player player;
     Dealer dealer;
     Shotgun gun;
     Random rand;
     Scanner scanner;
     String name;
-    String topLine = "\nx" + "-".repeat(41) + "BUCKSHOTxROULETTE" + "-".repeat(41) + "x\n";
+    String topLine = "\nx" + "-".repeat(39) + "♥♦BUCKSHOTxROULETTE♣♠" + "-".repeat(39) + "x\n";
     String bottomLine = "\nx" + "-".repeat(99)+ "x";
+
     public Game() {
         this.exit = false;
-        this.gun = new Shotgun();
         rand = new Random();
         scanner = new Scanner(System.in);
+        turns = new LinkedList<>();
     }
-    public void start() throws InterruptedException {
+
+    public void enterStage1() throws InterruptedException {
         showWaiver();
         askName();
 
+        this.gun = new Shotgun();
         this.player = new Player(2);
         this.dealer = new Dealer(2);
 
         while (dealer.health > 0) {
-            System.out.println(topLine);
-            if (gun.rounds.isEmpty()) {
-                int lives = rand.nextInt(1,3);
-                int blanks= rand.nextInt(1,3);
-                System.out.println(lives + " Lives, " + blanks + " Blanks\n");
-                gun.loadBullets(lives, blanks);
+            showBoard(nItems);
+            playerTurn();
+            dealerTurn();
 
-                player.addRandomItems(2);
-                dealer.addRandomItems(2);
+            // check if player health is 0
+            if (player.health <= 0) {
+                System.out.println("\nDEALER WINS!\n");
+                System.out.println("YOUR LIFE IS NOW MINE!!!\n");
+                break;
             }
-
-            // print current board
-            System.out.println("DEALER: " + "♥ ".repeat(this.dealer.health));
-            dealer.displayStorage();
-            System.out.println("\n".repeat(1));
-            System.out.println(name + ": " + "♥ ".repeat(this.player.health));
-            player.displayStorage();
-            System.out.println(bottomLine);
-
-            // player turn
-            System.out.println("(0) Use the gun (n) Pick a number to use items");
-            System.out.print("What will you do?: ");
-            int choice = scanner.nextInt();
-            if (choice == 0) {
-                System.out.print("Shoot (0) SELF or (1) DEALER: ");
-                int shoot = scanner.nextInt();
-                if (shoot == 0) gun.shoot(player, player);
-                else if (shoot == 1) gun.shoot(player, dealer);
-            } else player.useItem(player.storage.get(choice));
         }
 
-        if (player.health <= 0) {
-            System.out.println("DEALER WINS!\n");
-            exit();
-        } else {
-            System.out.println("\n" + name + " WINS!\n");
+        if (player.health > 0) {
+            System.out.println("\n" + name + " WINS!");
+            System.out.println("Processing stage II ...\n");
             enterStage2();
         }
     }
 
     private void enterStage2() {
-        System.out.println("Processing stage II ...");
 
         this.gun = new Shotgun();
         this.player = new Player(4);
         this.dealer = new Dealer(4);
+        this.nItems = 2;
 
         while (dealer.health > 0) {
-            System.out.println(topLine);
-            if (gun.rounds.isEmpty()) {
-                int lives = rand.nextInt(1,4);
-                int blanks= rand.nextInt(1,4);
-                System.out.println(lives + " Lives, " + blanks + " Blanks\n");
-                gun.loadBullets(lives, blanks);
+            showBoard(nItems);
+            playerTurn();
+            dealerTurn();
 
-                player.addRandomItems(4);
-                dealer.addRandomItems(4);
+            // check if player health is 0
+            if (player.health <= 0) {
+                System.out.println("DEALER WINS!\n");
+                break;
             }
-
-            // print current board
-            System.out.println("DEALER: " + "♥ ".repeat(this.dealer.health));
-            this.dealer.displayStorage();
-            System.out.println("\n".repeat(1));
-            System.out.println(name + ": " + "♥ ".repeat(this.player.health));
-            this.player.displayStorage();
-            System.out.println(bottomLine);
-
-            // player turn
-            System.out.println("(0) Use the gun (n) Pick a number to use items");
-            System.out.print("What will you do?: ");
-            int choice = scanner.nextInt();
-            if (choice == 0) {
-                System.out.print("Shoot (0) SELF or (1) DEALER: ");
-                int shoot = scanner.nextInt();
-                if (shoot == 0) gun.shoot(player, player);
-                else if (shoot == 1) gun.shoot(player, dealer);
-            } else player.useItem(player.storage.get(choice));
         }
-
-        if (player.health <= 0) {
-            System.out.println("DEALER WINS!\n");
-            exit();
-        } else {
-            System.out.println("\n" + name + " WINS!\n");
+        if (player.health > 0) {
+            System.out.println("\n" + name + " WINS!");
+            System.out.println("Processing stage III ...\n");
             enterStage3();
         }
     }
 
     private void enterStage3() {
-        System.out.println("Processing stage III ...");
-        System.out.println(topLine);
-        System.out.println(bottomLine);
-        System.out.println("Do you want to continue (y/n)?: ");
-        String opt = scanner.next();
-        if (Objects.equals(opt, "y")) {
-            enterStage2();
+        this.gun = new Shotgun();
+        this.player = new Player(6);
+        this.dealer = new Dealer(6);
+        this.nItems = 6;
+
+        while (dealer.health > 0) {
+            showBoard(nItems);
+            playerTurn();
+            dealerTurn();
+
+            // check if player health is 0
+            if (player.health <= 0) {
+                System.out.println("DEALER WINS!\n");
+                break;
+            }
         }
-        if (Objects.equals(opt, "n")) exit();
+
+        while (true) {
+            System.out.println("\n" + name + " WINS!\n");
+            if (player.health > 0) {
+                System.out.println("Do you want to continue (y/n)?: ");
+                String opt = scanner.next();
+                if (Objects.equals(opt, "y")) return;
+                if (Objects.equals(opt, "n")) exit();
+            }
+        }
+    }
+
+    private void showBoard(int nItems) {
+        System.out.println(topLine);
+
+        if (gun.rounds.isEmpty()) {
+            gun.loadBullets();
+            player.addRandomItems(nItems);
+            dealer.addRandomItems(nItems);
+        }
+
+        System.out.println("DEALER: " + "♥ ".repeat(this.dealer.health));
+        this.dealer.displayStorage();
+        System.out.println();
+
+        System.out.println(name + ": " + "♥ ".repeat(this.player.health));
+        this.player.displayStorage();
+
+        System.out.println(bottomLine);
+    }
+
+    private void playerTurn() {
+        System.out.print("Use (0)THE GUN || (1)AN ITEM: ");
+        int[] availableChoice = new int[]{0,1};
+        int choice = scanner.nextInt();
+
+        try {
+            if (availableChoice[choice] == 0) {
+                    System.out.print("Shoot (0)SELF  || (1)DEALER: ");
+                    int shoot = scanner.nextInt();
+                    if (availableChoice[shoot] == 0) gun.shoot(player, player);
+                    else gun.shoot(player, dealer);
+            } else {
+                int index = 1;
+                for (String item: player.availableItems) {
+                    System.out.print("(" + index + ")" + " " + item + "\n");
+                    index++;
+                }
+                System.out.print("Use: ");
+                int itemIndex = scanner.nextInt();
+                player.useItem(itemIndex-1);
+            }
+        } catch (IndexOutOfBoundsException e) {
+            System.out.println("\nUh... That is not an option!\n");
+            playerTurn();
+        }
+    }
+
+    private void dealerTurn() {
     }
 
     private void askName() {

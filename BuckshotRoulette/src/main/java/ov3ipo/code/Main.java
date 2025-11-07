@@ -11,24 +11,18 @@ public class Main {
 
         try {
             do {
-                System.out.println(
-                        "\n――――――――――――――――――――――\n" +
-                        "      ♥♦ Buckshot Roulette ♣♠" +
-                        "\n――――――――――――――――――――――"
-                );
-                System.out.println(
-                        "\nTwo enter only one leaves,\n" +
-                        "I grants wishes for those who challenge me!\n"
-                );
+                System.out.println("\nx" + "-".repeat(39) + "♥♦BUCKSHOTxROULETTE♣♠" + "-".repeat(39) + "x\n");
+                System.out.println("Two enter only one leaves,\nI grants wishes for those who challenge me!\n");
                 System.out.println("(1) - Enter");
                 System.out.println("(2) - Credit");
                 System.out.println("(0) - Exit");
-                System.out.print("\nThe choice is your: ");
+                System.out.println("\nx" + "-".repeat(99)+ "x");
+                System.out.print("The choice is your: ");
                 opt = scanner.nextInt();
 
                 switch (opt) {
                     case 1:
-                        buckshot.start();
+                        buckshot.enterStage1();
                         break;
                     case 2:
                         showCredit();

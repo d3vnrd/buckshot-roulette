@@ -3,36 +3,65 @@ package ov3ipo.code;
 import java.util.*;
 
 abstract class Entity {
-    protected int health, turn;
-    protected ArrayList<String> storage;
+    protected int health, miss;
+    protected Hashtable<String, Integer> storage;
     protected Random random;
+    protected String[] availableItems = new String[]{"magnify", "handsaw", "cigarette", "beer", "handcuff"};
     protected Entity(int health) {
         this.random = new Random();
         this.health = health;
-        this.turn = 0;
-        this.storage = new ArrayList<>();
-        for (int i=0; i<8; i++) this.storage.add(i, null);
+        this.miss= 0;
+        this.storage = new Hashtable<>();
+        for (String item: availableItems) storage.put(item, 0);
     }
 
     protected void displayStorage() {
-        int choice = 1;
-        for (int i=0; i<this.storage.size(); i++) {
-            if (this.storage.get(i) != null) {
-                System.out.print("(" + choice + ") " + this.storage.get(i) + " ");
-                choice++;
+        for (int i = 1; i<availableItems.length+1; i++) {
+            String item = availableItems[i-1];
+            if (i%2 == 0) {
+                System.out.print(" | " + item + ": " + storage.get(item )+ " | ");
+            } else {
+                System.out.print(item + ": " + storage.get(item));
             }
         }
         System.out.println();
     }
 
     // TODO: logic function to deal with when player use an item
-    protected void useItem(String item) {
+    protected void useItem(int itemIndex) {
+        try {
+            String item = availableItems[itemIndex];
 
+            if (this.storage.get(item) > 0) {
+                System.out.println("Player use a " + item);
+
+                switch (item) {
+                    case "magnify":
+                        break;
+                    case "beer":
+                        break;
+                    case "cigarette":
+                        break;
+                    case "handsaw":
+                        break;
+                    case "handcuff":
+                        break;
+                }
+
+                this.storage.put(item, this.storage.get(item)-1);
+            } else {
+                System.out.println("Nothing happen ...\nTry again!");
+            }
+        } catch (IndexOutOfBoundsException e) {
+            System.out.println("THERE ARE ONLY 5 ITEMS, OPEN YOUR EYES!");
+        }
     }
 
     protected void addRandomItems(int nItems) {
-        String[] availableItems = new String[]{"magnify", "handsaw", "cigarette", "beer", "handcuff"};
-        for (int i=0; i<nItems; i++) this.storage.addFirst(availableItems[random.nextInt(availableItems.length)]);
+        for(int i = 0; i<nItems; i++) {
+            String item = availableItems[random.nextInt(availableItems.length)];
+            storage.put(item, storage.get(item) + 1);
+        }
     }
 
     protected void takeDamage(int damage) {
@@ -60,15 +89,22 @@ class Dealer extends Entity {
 
 class Shotgun {
     Queue<Boolean> rounds;
-    int damage;
+    int damage, lives, blanks;
+    Random rand;
     public Shotgun() {
         rounds = new LinkedList<>();
         damage = 1;
+        rand = new Random();
     }
-    public void loadBullets(int lives, int blanks) {
+    public void loadBullets() {
         ArrayList<Boolean> temp = new ArrayList<>();
+        lives = rand.nextInt(1,3);
+        blanks= rand.nextInt(1,3);
+        System.out.println(this.lives + " Lives, " + this.blanks + " Blanks\n");
+
         for (int i=0; i<lives; i++) temp.add(true);
         for (int i=0; i<blanks; i++) temp.add(false);
+
         Collections.shuffle(temp);
         rounds.addAll(temp);
     }
@@ -77,6 +113,7 @@ class Shotgun {
             effector.takeDamage(damage);
         }
     }
+
     public void doubleDamage() {
         this.damage = 2;
     }
