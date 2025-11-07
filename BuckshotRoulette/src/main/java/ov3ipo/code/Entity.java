@@ -6,7 +6,7 @@ public abstract class Entity {
     protected int health, miss, number_items;
     protected boolean endTurn;
     protected Hashtable<String, Integer> storage;
-    final Random random = new Random();
+    private final Random random = new Random();
     protected String[] availableItems = new String[]{"magnify", "handsaw", "cigarette", "beer", "handcuff"};
 
     protected Entity(int health, int number_items) {
@@ -37,7 +37,7 @@ public abstract class Entity {
     }
 
     protected void addRandomItems() {
-        for (int i = 0; i < number_items; i++) {
+        for (int i = 0; i < spaceLeft(); i++) {
             String item = availableItems[random.nextInt(availableItems.length)];
             storage.put(item, storage.get(item) + 1);
         }
@@ -47,9 +47,14 @@ public abstract class Entity {
         this.health -= damage;
     }
 
-    // this function is used to set health and number of items, for more generalize when creating new stage
-    protected void setAttribute(int health, int number_items) {
-        this.number_items = number_items;
-        this.health = health;
+    // function that check whether we can add more item to the storage
+    protected int spaceLeft() {
+        int space_left;
+        int current_size = Arrays.stream(availableItems).mapToInt(item -> storage.get(item)).sum();
+        int add_size = current_size + number_items;
+        if (add_size >= 8) {
+            space_left = 8 - current_size;
+        } else space_left = number_items;
+        return space_left;
     }
 }

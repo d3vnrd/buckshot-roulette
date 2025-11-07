@@ -92,26 +92,12 @@ public class Dealer extends Entity {
             }
         }
 
-        int[] dmg = dmgCalculate(player);
-        double hit_chance = (double) this.lives / this.total;
-
-        // get current available items in storage
         if (actives.contains("cigarette") && health < player.health) {
             actives.remove("cigarette");
             return "cigarette";
         } else actives.remove("cigarette");
 
         return "";
-    }
-
-
-    public boolean checkStorage() { // return false if storage has item, true when empty
-        for (String item : availableItems) {
-            if (this.storage.get(item) != 0) {
-                return false;
-            }
-        }
-        return true;
     }
 
     public void getRounds(Shotgun gun) {

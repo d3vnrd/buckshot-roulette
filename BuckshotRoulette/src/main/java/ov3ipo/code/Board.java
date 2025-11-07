@@ -3,21 +3,22 @@ package ov3ipo.code;
 import java.util.*;
 
 public class Board {
-    Player player;
-    Dealer dealer;
-    Shotgun gun;
-    String name;
-    Integer health;
-    Integer nItems;
+    private Player player;
+    private Dealer dealer;
+    private Shotgun gun;
+    private String name;
+    private Integer health;
+    private Integer nItems;
+    private final Scanner scanner;
     Boolean exit;
-    Scanner scanner = new Scanner(System.in);
-    final String topLine = "\nx" + "-".repeat(39) + "♥♦BUCKSHOTxROULETTE♣♠" + "-".repeat(39) + "x\n";
-    final String bottomLine = "\nx" + "-".repeat(100) + "x";
+    private final String topLine = "\nx" + "-".repeat(39) + "♥♦BUCKSHOTxROULETTE♣♠" + "-".repeat(39) + "x\n";
+    private final String bottomLine = "\nx" + "-".repeat(100) + "x";
 
     public Board() {
         this.health = 2;
         this.nItems = 0;
         this.exit = false;
+        this.scanner = new Scanner(System.in);
     }
 
     public void start() throws InterruptedException {
@@ -32,9 +33,6 @@ public class Board {
                 System.out.println("YOUR LIFE IS NOW MINE!!!\n");
                 return;
             } else if (dealer.health <= 0) {
-                System.out.println("\n" + name + " WINS!");
-                health += 2;
-                nItems += 2;
                 currentStage++;
                 if (currentStage > 3) {
                     System.out.println("ARGHH!!!...");
@@ -45,7 +43,10 @@ public class Board {
                         if (Objects.equals(opt, "n")) exit=true;
                     }
                 } else {
+                    System.out.println("\n" + name + " WINS!");
                     System.out.println("Processing stage " + "I".repeat(currentStage));
+                    health += 2;
+                    nItems += 2;
                     createEntities();
                 }
             }
@@ -108,7 +109,7 @@ public class Board {
                         if (!gun.shoot(player)) dealer.miss++;
                     } else gun.shoot(dealer);
 
-                    // if player shoot end turn
+                    // if shoot end turn
                     player.endTurn = true;
                 } else {
                     int index = 1;
@@ -206,4 +207,7 @@ public class Board {
         System.out.println("―――――――――――――――――――――――――――――――――");
     }
 
+    public void exit() {
+        this.exit = true;
+    }
 }
