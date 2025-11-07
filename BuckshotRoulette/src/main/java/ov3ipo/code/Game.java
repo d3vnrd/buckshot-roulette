@@ -6,7 +6,7 @@ import java.util.Random;
 import java.util.Scanner;
 
 public class Game {
-    boolean exit, nextStage;
+    boolean exit;
     Player player;
     Dealer dealer;
     Shotgun gun;
