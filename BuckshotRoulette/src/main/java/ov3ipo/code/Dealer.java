@@ -82,15 +82,12 @@ public class Dealer extends Entity {
         // get information about current round
         getRounds(gun);
 
-        System.out.println(lives+ " " + total); // print current chamber status
-
         List<String> actives = new ArrayList<>();
         for (String item : availableItems) {
             if (storage.get(item) > 0) {
                 actives.add(item);
             }
         }
-        System.out.println(actives); // print active items
 
         // TODO: assert current actives items
         // always use cigarette as soon as possible
@@ -120,50 +117,47 @@ public class Dealer extends Entity {
             if (actives.contains(item)) actions_pool.add(item);
         }
 
-        System.out.println(actions_pool);
-
         // get needed parameter include dmg and hit chance
         int[] dmg = dmgCalculate(player);
         double hit_chance = (double) lives / total;
         if (Boolean.TRUE.equals(observe)) hit_chance = 1;
         else if(Boolean.FALSE.equals(observe)) hit_chance = 0;
 
-        System.out.println(Arrays.toString(dmg) + " " + hit_chance);
-
         Set<List<String>> actions_combs = possibleActions(actions_pool); // Set is an unordered collection of objects in which duplicate values cannot be stored
-        for (List<String> actions: actions_combs) System.out.println(actions);
 
         // TODO: current problem Dealer do not use any item it has beside cigarette
-        // create a hashmap to store expected value of an action
-        Map<List<String>, Double> actionExpectedVals = new HashMap<>();
-        for (List<String> action : actions_combs) {
-            double expectedValue = expectedVal(action, lives, total, dmg, hit_chance);
-            actionExpectedVals.put(action, expectedValue);
+        // PROBLEMS: hashmap does not store any new key only 1 empty list is store
+        // create a hashmap to store expected value of a sequence of actions
+        Map<List<String>, Double> actionValue = new HashMap<>();
+        for (List<String> actions : actions_combs) {
+            List<String> temp = new ArrayList<>(actions);
+            actionValue.put(actions, expectedVal(temp, lives, total, dmg, hit_chance));
         }
 
-        List<String> bestAction = new ArrayList<>();
+        // special handling for handcuff
         if (actives.contains("handcuff")) {
             actions_pool.remove("handcuff");
-            for (List<String> action: actionExpectedVals.keySet()) {
+            for (List<String> action: actionValue.keySet()) {
                 if (!action.contains("handcuff")) {
                     continue;
                 }
 
                 Hashtable<String, Integer> current_storage = storage;
-                List<String> current_pool = actions_pool;
 
-                for (String i : new String[]{"handsaw", "magnify"}) {
-                    if (action.contains(i)) {
-                        if (storage.get(i) <=1) current_pool.remove(i);
-                        current_storage.put(i, current_storage.get(i) - 1);
+                List<String> current_pool = new ArrayList<>(actions_pool);
+
+                for (String item : new String[]{"handsaw", "magnify"}) {
+                    if (action.contains(item)) {
+                        if (storage.get(item) <=1)
+                            current_pool.remove(item);
+                        current_storage.put(item, current_storage.get(item) - 1);
                     }
                 }
-                int beerCount = (int) action.stream().filter(x -> x.equals("beer")).count();
+                int beerCount = Collections.frequency(action, "beer");
                 current_storage.put("beer", current_storage.get("beer") - beerCount);
 
-                for (int i = 0; i<beerCount; i++) {
+                for (int i = 0; i<beerCount; i++)
                     current_pool.remove("beer");
-                }
 
                 Set<List<String>> nextActions = possibleActions(current_pool);
                 double bestLive = nextActions.stream()
@@ -176,20 +170,18 @@ public class Dealer extends Entity {
                         .max()
                         .orElse(0.0);
 
-                double updatedValue = actionExpectedVals.get(action) +
+                double updatedValue = actionValue.get(action) +
                         ((double) lives / total) * bestLive +
                         ((double) (total - lives) / total) * bestBlank;
 
-                actionExpectedVals.put(action, updatedValue);
+                actionValue.put(action, updatedValue);
             }
-            // TODO: seem to not work properly
-            bestAction = actionExpectedVals.entrySet().stream()
-                    .max(Map.Entry.comparingByValue())
-                    .map(Map.Entry::getKey)
-                    .orElse(Collections.singletonList("opt"));
-            System.out.println(bestAction);
         }
-        return !bestAction.isEmpty() ? bestAction.getFirst() : "opt";
+
+        return actionValue.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(e -> e.getKey().isEmpty()? "opt" : e.getKey().getFirst())
+                .orElse("opt");
     }
 
     public void getRounds(Shotgun gun) {

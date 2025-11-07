@@ -34,6 +34,7 @@ public class Main {
                 }
             } while(!board.exit);
         } catch (InputMismatchException | IndexOutOfBoundsException e) {
+            System.out.println(e);
             System.out.println("\nI DON'T HAVE TIME TO PLAY WITH YOU, GET OUT!!!");
         }
     }

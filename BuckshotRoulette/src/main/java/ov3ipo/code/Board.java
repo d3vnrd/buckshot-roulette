@@ -31,6 +31,7 @@ public class Board {
             if (player.health <= 0) {
                 System.out.println("DEALER WINS!\n");
                 System.out.println("YOUR LIFE IS NOW MINE!!!\n");
+                reset();
                 return;
             } else if (dealer.health <= 0) {
                 currentStage++;
@@ -39,7 +40,10 @@ public class Board {
                     while(true) {
                         System.out.println("Do you want to continue (y/n)?: ");
                         String opt = scanner.next();
-                        if (Objects.equals(opt, "y")) return;
+                        if (Objects.equals(opt, "y")) {
+                            reset();
+                            return;
+                        }
                         if (Objects.equals(opt, "n")) exit=true;
                     }
                 } else {
@@ -57,6 +61,12 @@ public class Board {
         }
     }
 
+    private void reset() {
+        this.health = 2;
+        this.nItems = 0;
+    }
+
+    // change health value to test
     private void createEntities() {
         gun = new Shotgun();
         player = new Player(health, nItems);
