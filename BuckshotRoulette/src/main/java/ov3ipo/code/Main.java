@@ -9,7 +9,6 @@ public class Main {
         Scanner scanner = new Scanner(System.in);
         Game buckshot = new Game();
 
-        //TODO: welcome page include -> title, (1) Start, (2) Credit, (0) Exit
         try {
             do {
                 System.out.println(
@@ -29,8 +28,6 @@ public class Main {
 
                 switch (opt) {
                     case 1:
-                        buckshot.showWaiver();
-                        buckshot.askName();
                         buckshot.start();
                         break;
                     case 2:
@@ -48,8 +45,11 @@ public class Main {
     }
 
     private static void showCredit() {
-        System.out.println("This is a small project of mine toward DSA course at International University HCM");
-        System.out.println("Name: Nguyen Tri Tin    ID: ITDSIU21123     Class: ");
+        System.out.println("\n―――――――――――――――――――――――――――――――――");
+        System.out.println("This game is based on the actual game 'buckshot roulette'.\nIn a nutshell, this is russian roulette.\nInfo: https://en.wikipedia.org/wiki/Buckshot_Roulette\n");
+        System.out.println("This is a small project of mine toward DSA course at\nInternational University HCM");
+        System.out.println("Name: Nguyen Tri Tin    ID: ITDSIU21123     Class: ITIT22IU11");
+        System.out.println("―――――――――――――――――――――――――――――――――");
     }
 
 }
