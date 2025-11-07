@@ -7,7 +7,7 @@ public class Main {
     public static int opt;
     public static void main(String[] args) throws InterruptedException {
         Scanner scanner = new Scanner(System.in);
-        Game buckshot = new Game();
+        Game buckshot = new Game(2,0);
 
         try {
             do {
