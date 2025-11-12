@@ -5,61 +5,49 @@ from typing import TYPE_CHECKING, override
 if TYPE_CHECKING: 
     from buckshot.entity import Player, Shotgun
 
+class ActionResult:
+    def __init__(self):
+        self.game_over: bool = False
+        self.end_turn: bool = False
+        self.chamber_depleted: bool = False
+
 class Action(ABC):
-    def __init__(self, actor: Player):
+    def __init__(self, actor: Player, target: Player, shotgun: Shotgun):
         self.actor: Player = actor
+        self.target: Player = target
+        self.shotgun: Shotgun = shotgun
+        self.result: ActionResult
 
     @abstractmethod
-    def execute(self):
+    def execute(self) -> Action:
         pass
 
-class ShootAction(Action):
-    def __init__(self, actor: Player, target: Player|None, shotgun: Shotgun):
-        super().__init__(actor)
-        self.target: Player = target or actor
-        self.shotgun: Shotgun = shotgun 
-
+class UseGunAction(Action):
     @override
     def execute(self):
-        pass
+        return self
 
 class UseMagnifierAction(Action):
-    def __init__(self, actor: Player, shotgun: Shotgun):
-        super().__init__(actor)
-        self.shotgun: Shotgun = shotgun
-
     @override
     def execute(self):
-        pass
+        return self
 
 class UseBeerAction(Action):
-    def __init__(self, actor: Player, shotgun: Shotgun):
-        super().__init__(actor)
-        self.shotgun: Shotgun = shotgun
-
     @override
     def execute(self):
-        pass
+        return self
 
 class UseHandsawAction(Action):
-    def __init__(self, actor: Player, shotgun: Shotgun):
-        super().__init__(actor)
-        self.shotgun: Shotgun = shotgun
-
     @override
     def execute(self):
-        pass
+        return self
 
 class UseCigaretteAction(Action):
     @override
     def execute(self):
-        pass
+        return self
 
 class UseHandcuffAction(Action):
-    def __init__(self, actor: Player, target: Player):
-        super().__init__(actor)
-        self.target: Player = target
-
     @override
     def execute(self):
-        pass
+        return self
