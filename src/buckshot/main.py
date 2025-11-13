@@ -1,2 +1,5 @@
+from buckshot.display import StopwatchApp
+
 if __name__ == "__main__":
-    print("Greeting")
+    app = StopwatchApp()
+    app.run()

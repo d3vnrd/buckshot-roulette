@@ -1,4 +1,4 @@
-from buckshot.entity import Player, Dealer, Shotgun
+from buckshot.entity import Player, Dealer, Shotgun, Stage
 from buckshot.action import *
 
 VALID_ACTIONS: dict[str, type[Action]] = {
@@ -10,24 +10,13 @@ VALID_ACTIONS: dict[str, type[Action]] = {
     "gun": UseGunAction
 }
 
-class Stage:
-    def __init__(self):
-        self.health: int = 2
-        self.capacity: int = 4
-        self.rounds: int = 4
-
-    def next_stage(self):
-        self.health *= 2
-        self.capacity *= 2
-        self.rounds *= 2
-
 class Board:
     def __init__(self):
         self.shotgun: Shotgun
         self.players : tuple[Player, Player]
         self.stage: Stage
         self.winner: Player|None = None
-        self.__curr_idx: int = 0
+        self._curr_idx: int = 0
 
     @property
     def __ready(self) -> bool:
@@ -49,18 +38,27 @@ class Board:
         if len(args) > 1 and args[1] == "self":
             target = actor
 
-        return VALID_ACTIONS[cmd](actor, target, self.shotgun)
+        return VALID_ACTIONS[cmd](actor, target, self.shotgun, self.stage)
 
-    def __next_player(self):
-        next_player = self.players[1 - self.__curr_idx] 
-        
+    def __next_player(self, next_player: Player):
         if not next_player.turn:
             next_player.turn = True
         else:
-            self.__curr_idx = 1 - self.__curr_idx
+            self._curr_idx = 1 - self._curr_idx
+
+    def __add_items(self):
+        return (
+            player.inventory.add_items(self.stage.capacity)
+            for player in self.players
+        )
 
     def __get_winner(self):
         return list(filter(lambda player: player.health > 0, self.players))[0]
+
+    def __reset(self):
+        self.shotgun.reload(self.stage.rounds)
+        for player in self.players:
+            player.create(self.stage.health_cap, self.stage.capacity)
 
     def setup(
         self, 
@@ -77,43 +75,43 @@ class Board:
             Player(player02_name) if player02_name else Dealer()
         )
 
-        self.reset()
-
-    def reset(self):
-        if not self.__ready:
-            raise RuntimeError("Board have not yet been initialized - call setup() first.")
-
-        self.shotgun.reload(self.stage.rounds)
-        for player in self.players:
-            player.create(self.stage.health, self.stage.capacity)
+        self.__reset()
 
     def start(self):
         if not self.__ready:
             raise RuntimeError("Board not ready - call setup() first.")
 
         while not self.winner:
-            actor = self.players[self.__curr_idx]
-            target = self.players[1 - self.__curr_idx]
+            actor = self.players[self._curr_idx]
+            target = self.players[1 - self._curr_idx]
+
+            # This make sure that shotgun chamber will never be empty
+            if self.shotgun.is_empty:
+                self.shotgun.reload(self.stage.rounds)
+                if self.stage.stage_idx > 1:
+                    #TODO: Need a handler to notify user items being added
+                    _ = self.__add_items()
 
             commands = actor.get_commands()
             try:
                 action = self.__parse_cmd(commands, actor, target)
-                result = action.execute().result
+                result = action.execute()
 
                 if result.game_over:
                     user_input = input("Continue? (yes/no): ")
                     if user_input == "yes":
                         self.stage.next_stage()
-                        self.reset()
+                        self.__reset()
                         continue
                     else:
                         self.winner = self.__get_winner()
+                        continue
 
-                if result.chamber_depleted:
-                    self.shotgun.reload(self.stage.rounds)
+                if result.skip_turn:
+                    target.turn = False
 
                 if result.end_turn:
-                    self.__next_player()
+                    self.__next_player(target)
 
             except ValueError as e:
                 print(f"Error: {e}")
