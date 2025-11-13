@@ -34,27 +34,29 @@ class UseGunAction(Action):
     @override
     def execute(self):
         shell = self.shotgun.eject()
+        game_over = False
+        skip_turn = False
+
+        if shell is None:
+            raise ValueError("Empty chamber, it should be checked on every loop")
 
         if shell is True:
             self.target.health -= self.shotgun.damage
-            #ERROR: Shotgun damage get reset only if True
-            if self.shotgun.damage > 1: 
-                self.shotgun.damage = 1
-            return ActionResult(game_over= self.target.health <= 0)
+            game_over = self.target.health <= 0
 
-        if self.target is self.actor:
-            return ActionResult(skip_turn=True)
+        if shell is False and self.target is self.actor:
+            skip_turn = True
 
-        return ActionResult()
+        self.shotgun.damage = 1
+        return ActionResult(skip_turn=skip_turn, game_over=game_over)
 
 class ItemAction(Action, ABC):
     def _consume_item(self, item: str):
-        if self.actor.inventory.is_empty:
-            raise ValueError("Player have no items left.")
-
         if not self.actor.inventory.has_item(item):
             raise ValueError(f"No {item} in inventory.")
         self.actor.inventory.items[item] -= 1
+
+    #TODO: Add cases where actions failed to execute raise Exception where necessary
 
 class UseMagnifierAction(ItemAction):
     @override
@@ -92,8 +94,18 @@ class UseCigaretteAction(ItemAction):
 
         return ActionResult(end_turn=False, response="User is at full health.")
 
-# TODO: Fix Handcuff Action it is quite redundant now
 class UseHandcuffAction(ItemAction):
     @override
     def execute(self):
-        return ActionResult()
+        if not self.target.turn:
+            return ActionResult(
+                end_turn=False, 
+                response="Current target's turn has been skipped."
+            )
+
+        self._consume_item("handcuff")
+        self.target.turn = False
+        return ActionResult(
+            end_turn=False,
+            response="Target's next turn will be skipped."
+        )

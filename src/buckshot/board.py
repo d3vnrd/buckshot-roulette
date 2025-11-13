@@ -48,7 +48,7 @@ class Board:
 
     def __add_items(self):
         return (
-            player.inventory.add_items(self.stage.capacity)
+            player.inventory.add_items(self.stage.items_per_reload)
             for player in self.players
         )
 
@@ -58,7 +58,7 @@ class Board:
     def __reset(self):
         self.shotgun.reload(self.stage.rounds)
         for player in self.players:
-            player.create(self.stage.health_cap, self.stage.capacity)
+            player.create(self.stage.health_cap)
 
     def setup(
         self, 
@@ -92,7 +92,7 @@ class Board:
                     #TODO: Need a handler to notify user items being added
                     _ = self.__add_items()
 
-            commands = actor.get_commands()
+            commands = actor.get_commands() # Return item use (gun/items) and target if required
             try:
                 action = self.__parse_cmd(commands, actor, target)
                 result = action.execute()
@@ -113,6 +113,7 @@ class Board:
                 if result.end_turn:
                     self.__next_player(target)
 
+            #TODO: Add handler to pass Exception to display manager
             except ValueError as e:
                 print(f"Error: {e}")
                 continue
@@ -121,4 +122,5 @@ class Board:
                 print(f"Action failed: {e}")
                 continue
 
+        #TODO: Add handler to pass Winner to displayer manager
         print(f"{self.winner.name} wins!")

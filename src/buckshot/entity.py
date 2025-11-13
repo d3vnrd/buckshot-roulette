@@ -5,18 +5,19 @@ import random as rand
 class Stage:
     def __init__(self):
         self.health_cap: int = 2
-        self.capacity: int = 4
+        self.items_per_reload: int = 1
         self.rounds: int = 4
-        self.inv_cap: int = 8
         self.stage_idx: int = 1
 
     def next_stage(self):
+        #TODO: adjust values accodingly
         self.health_cap *= 2
-        self.capacity *= 2
+        self.items_per_reload *= 2
         self.rounds *= 2
+        self.stage_idx += 1
 
 class Inventory:
-    VALID_ITEMS: dict[str, int] = {
+    __VALID_ITEMS: dict[str, int] = {
         "magnifier": 1,
         "beer": 2,
         "handsaw": 3,
@@ -24,8 +25,10 @@ class Inventory:
         "handcuff": 1
     }
 
-    def __init__(self, capacity: int):
-        self.capacity: int = capacity
+    __INV_CAP: int = 8
+
+    def __init__(self):
+        self.capacity: int = self.__INV_CAP
         self.items: dict[str, int] = {}
 
     @property
@@ -45,7 +48,7 @@ class Inventory:
         
         while items_added < n_items and not self.is_full:
             available = [
-                item for item, cap in self.VALID_ITEMS.items()
+                item for item, cap in self.__VALID_ITEMS.items()
                 if self.items.get(item, 0) < cap
             ]
             
@@ -71,7 +74,7 @@ class Shotgun:
 
     @property
     def is_empty(self) -> bool:
-        return len(self.chamber) <=0
+        return len(self.chamber) <= 0
 
     def peek(self) -> bool|None:
         """See the next shell in the chamber"""
@@ -85,6 +88,7 @@ class Shotgun:
             return None
         return self.chamber.pop()
 
+    #TODO: What is the exact rounds for each stage (I, II, & III)
     def reload(self, rounds: int):
         """Reload new bullets"""
         lives = rand.randint(1, 4)
@@ -109,9 +113,9 @@ class Player:
         self.health: int
         self.inventory: Inventory 
 
-    def create(self, health: int, capacity: int):
+    def create(self, health: int):
         self.health = health
-        self.inventory = Inventory(capacity)
+        self.inventory = Inventory()
         self.turn = True
 
     def get_commands(self) -> list[str]:
