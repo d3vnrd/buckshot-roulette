@@ -2,12 +2,18 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, override
+from buckshot.error import (
+    EmptyChamberError,
+    InsufficientItemsError,
+    InvalidActionError
+)
 
 if TYPE_CHECKING: 
     from buckshot.entity import Player, Shotgun, Stage
 
 @dataclass
 class ActionResult:
+    """Result after a sucessful Action"""
     end_turn: bool = True
     game_over: bool = False
     skip_turn: bool = False
@@ -30,6 +36,8 @@ class Action(ABC):
     def execute(self) -> ActionResult:
         pass
 
+# Failed cases: 
+# - Empty chamber (should never happen)
 class UseGunAction(Action):
     @override
     def execute(self):
@@ -38,7 +46,7 @@ class UseGunAction(Action):
         skip_turn = False
 
         if shell is None:
-            raise ValueError("Empty chamber, it should be checked on every loop")
+            raise EmptyChamberError()
 
         if shell is True:
             self.target.health -= self.shotgun.damage
@@ -53,27 +61,39 @@ class UseGunAction(Action):
 class ItemAction(Action, ABC):
     def _consume_item(self, item: str):
         if not self.actor.inventory.has_item(item):
-            raise ValueError(f"No {item} in inventory.")
+            raise InsufficientItemsError(item)
         self.actor.inventory.items[item] -= 1
 
-    #TODO: Add cases where actions failed to execute raise Exception where necessary
-
+# Failed cases: 
+# - Empty chamber (should never happen)
+# - Does not have item
 class UseMagnifierAction(ItemAction):
     @override
     def execute(self):
-        self._consume_item("magnifier")
         shell = self.shotgun.peek()
+        if shell is None:
+            raise EmptyChamberError()
+
+        self._consume_item("magnifier")
         response = f"Current shell is {"Live" if shell else "Blank"}"
         return ActionResult(end_turn=False, response=response)
 
+# Failed cases: 
+# - Empty chamber (should never happen)
+# - Does not have item
 class UseBeerAction(ItemAction):
     @override
     def execute(self):
-        self._consume_item("beer")
         shell = self.shotgun.eject()
+        if shell is None:
+            raise EmptyChamberError()
+
+        self._consume_item("beer")
         response = f"Current ejected shell is {"Live" if shell else "Blank"}"
         return ActionResult(end_turn=False, response=response)
 
+# Failed cases: 
+# - Does not have item
 class UseHandsawAction(ItemAction):
     @override
     def execute(self):
@@ -84,28 +104,28 @@ class UseHandsawAction(ItemAction):
             response=f"Doubled shotgun damage, current damage is: {self.shotgun.damage}."
         )
 
+# Failed cases: 
+# - Does not have item
+# - User is at full health
 class UseCigaretteAction(ItemAction):
     @override
     def execute(self):
-        if self.actor.health < self.stage.health_cap:
-            self._consume_item("cigarette")
-            self.actor.health += 1
-            return ActionResult(end_turn=False, response="Heal user 1 health.")
+        if self.actor.health >= self.stage.health_cap:
+            raise InvalidActionError("Already at full health")
 
-        return ActionResult(end_turn=False, response="User is at full health.")
+        self._consume_item("cigarette")
+        self.actor.health += 1
+        return ActionResult(end_turn=False, response="Healed 1 health.")
 
+# Failed cases:
+# - Does not have item
+# - Current target turn has been skipped (use more than 1 handcuff)
 class UseHandcuffAction(ItemAction):
     @override
     def execute(self):
         if not self.target.turn:
-            return ActionResult(
-                end_turn=False, 
-                response="Current target's turn has been skipped."
-            )
+            raise InvalidActionError("Target's turn already skipped")
 
         self._consume_item("handcuff")
         self.target.turn = False
-        return ActionResult(
-            end_turn=False,
-            response="Target's next turn will be skipped."
-        )
+        return ActionResult(end_turn=False, response="Target's next turn will be skipped")

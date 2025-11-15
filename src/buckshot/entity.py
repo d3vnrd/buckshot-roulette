@@ -1,4 +1,3 @@
-from typing import override
 from collections import deque
 import random as rand
 
@@ -25,10 +24,10 @@ class Inventory:
         "handcuff": 1
     }
 
-    __INV_CAP: int = 8
+    __INVENTORY_CAP: int = 8
 
     def __init__(self):
-        self.capacity: int = self.__INV_CAP
+        self.capacity: int = self.__INVENTORY_CAP
         self.items: dict[str, int] = {}
 
     @property
@@ -122,14 +121,3 @@ class Player:
         cmds: list[str] = []
 
         return cmds
-
-class Dealer(Player):
-    def __init__(self):
-        super().__init__("Dealer")
-
-    @override
-    def get_commands(self):
-        cmds: list[str] = []
-
-        return cmds
-

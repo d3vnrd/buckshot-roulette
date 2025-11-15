@@ -1,5 +1,7 @@
-from buckshot.entity import Player, Dealer, Shotgun, Stage
+from buckshot.entity import Player, Shotgun, Stage
+from buckshot.agent import Dealer
 from buckshot.action import *
+from buckshot.error import ActionError, UninitializedBoardError
 
 VALID_ACTIONS: dict[str, type[Action]] = {
     "magnifier": UseMagnifierAction,
@@ -26,7 +28,7 @@ class Board:
             return False
         
         return all(
-            all(hasattr(player, attr) for attr in ["health", "storage", "turn"])
+            all(hasattr(player, attr) for attr in ["health", "invetory", "turn"])
             for player in self.players
         )
 
@@ -45,6 +47,9 @@ class Board:
             next_player.turn = True
         else:
             self._curr_idx = 1 - self._curr_idx
+
+    def __get_players(self) -> tuple[Player, Player]:
+        return self.players[self._curr_idx], self.players[1 - self._curr_idx]
 
     def __add_items(self):
         return (
@@ -65,9 +70,6 @@ class Board:
         player01_name: str,
         player02_name: str,
     ) -> None:
-        if self.__ready: 
-            raise RuntimeError("Board has already been setup.")
-
         self.stage = Stage()
         self.shotgun = Shotgun()
         self.players = (
@@ -79,11 +81,11 @@ class Board:
 
     def start(self):
         if not self.__ready:
-            raise RuntimeError("Board not ready - call setup() first.")
+            #TODO: This is a bit vauge, what should this function return?
+            raise UninitializedBoardError()
 
         while not self.winner:
-            actor = self.players[self._curr_idx]
-            target = self.players[1 - self._curr_idx]
+            actor, target = self.__get_players()
 
             # This make sure that shotgun chamber will never be empty
             if self.shotgun.is_empty:
@@ -114,12 +116,12 @@ class Board:
                     self.__next_player(target)
 
             #TODO: Add handler to pass Exception to display manager
-            except ValueError as e:
-                print(f"Error: {e}")
+            except ActionError as e:
+                print(f"Game Error: {e}")
                 continue
 
             except Exception as e:
-                print(f"Action failed: {e}")
+                print(f"Unexpected Error: {e}")
                 continue
 
         #TODO: Add handler to pass Winner to displayer manager
