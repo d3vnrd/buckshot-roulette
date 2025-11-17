@@ -1,7 +1,7 @@
-from buckshot.entity import Player, Shotgun, Stage
-from buckshot.agent import Dealer
-from buckshot.action import *
-from buckshot.error import ActionError, UninitializedBoardError
+from .entity import Player, Shotgun, Stage
+from .agent import Dealer
+from .action import *
+from .error import ActionError, UninitializedBoardError
 
 VALID_ACTIONS: dict[str, type[Action]] = {
     "magnifier": UseMagnifierAction,

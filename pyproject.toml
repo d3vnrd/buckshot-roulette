@@ -1,9 +1,14 @@
 [project]
 name = "buckshot-roulette"
-version = "0.0.1"
+version = "0.1.0"
 description = ""
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "rich>=14.2.0",
 ]
+
+[tool.basedpyright]
+include = ["src"]
+exclude = ["**/__pycache__"]
+typeCheckingMode = "standard"

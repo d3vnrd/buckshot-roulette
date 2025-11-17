@@ -1,5 +1,5 @@
 from typing import override
-from buckshot.entity import Player
+from .entity import Player
 
 class Dealer(Player):
     def __init__(self):
