@@ -40,6 +40,10 @@ class Inventory:
         """Return True if there are no items at all."""
         return not any(self.items.values())
 
+    @property
+    def total(self) -> int:
+        return sum(self.items.values())
+
     def add_items(self, n_items: int):
         """Add multiple random items to inventory."""
         added_items: dict[str, int] = {}
