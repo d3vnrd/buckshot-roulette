@@ -1,46 +1,25 @@
-from abc import abstractmethod
+from importlib.metadata import PackageNotFoundError, version
 from typing import override
+from abc import abstractmethod
 
-from textual.app import ComposeResult
-from textual.containers import Container
+from textual.app import App, ComposeResult
 from textual.screen import Screen
+from textual.containers import (
+    Container,
+)
 from textual.widgets import (
-    Label,
     Footer,
 )
 
-from .elem import *
+from ._widget import *
 
 class BaseScreen(Screen):
     BINDINGS = [("q", "app.switch_mode('default')", "Back")]
 
-    DEFAULT_CSS = """
-    BaseScreen {
-        layout: vertical;
-    }
-
-    BaseScreen Header {
-        width: 100%;
-        height: 1;
-        padding: 0 1 0 1;
-    }
-
-    BaseScreen Container {
-        width: 100%;
-        height: 1fr;
-        padding: 0 1 0 1;
-    }
-
-    BaseScreen Footer {
-        align: right middle;
-        background: $background;
-    }
-    """
-
     @override
     def compose(self) -> ComposeResult:
         yield Header()
-        with Container(id="content"):
+        with Container(id='main-contents'):
             yield from self.set_content()
         yield Footer()
 
@@ -86,43 +65,40 @@ class MainGameScreen(BaseScreen):
         ("space", "player_interact", "Interact")
     ]
 
-    DEFAULT_CSS = """
-    MainGameScreen Container {
-        width: 100%;
-        height: 1fr;
-        layout: grid;
-        grid-size: 2 3;
-    }
-
-    MainGameScreen Log {
-        background: $background;
-        scrollbar-visibility: hidden;
-    }
-
-    .pane-title { 
-        width: 100%;
-        margin-bottom: 1;
-        content-align: center middle;
-    }
-
-    .right-align {
-        width: 1fr;
-        align: right middle;
-        content-align: right middle;
-    }
-    """
-
     @override
     def set_content(self) -> ComposeResult:
-       # Top section: Players info + Game status
-        yield PlayersInfo()
-        yield GameStatus()
-        
-        # Middle section: Game logs
-        yield GameLogs()
-        
-        # Bottom section: Game chats + Detail inventory
-        yield GameChats()
-        yield DetailInventory()
+        with Container(id='game-pane'):
+            yield GameStatus()
+            yield GameLogs()
+            yield GameChats()
 
+        with Container(id="player-pane"):
+            yield PlayersInfo()
+            yield PlayersInventory()
 
+class Interface(App): 
+    ENABLE_COMMAND_PALETTE = False
+    CSS_PATH = [
+        "./style/main.tcss",
+        "./style/widget.tcss",
+    ]
+
+    DEFAULT_MODE = "default"
+    MODES = {
+        "default": DefaultScreen,
+        "credit": CreditScreen,
+        "help": HelpScreen,
+        "setup": SetupScreen,
+        "board": MainGameScreen
+    }
+
+    def __init__(self, args: list[str] | None = None):
+        super().__init__()
+        self.app.title = "buckshot-roulette"
+        self.app.sub_title = f"v{self.get_version()}"
+
+    def get_version(self):
+        try:
+            return version("buckshot-roulette")
+        except PackageNotFoundError:
+            return "Unknown"

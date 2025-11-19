@@ -2,14 +2,14 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, override
-from .error import (
+from ._error import (
     EmptyChamberError,
     InsufficientItemsError,
     InvalidActionError
 )
 
 if TYPE_CHECKING: 
-    from buckshot.entity import Player, Shotgun, Stage
+    from ._entity import Player, Shotgun, Stage
 
 @dataclass
 class ActionResult:

@@ -1,2 +1,7 @@
-from .textual.app import BuckshotApp
-__all__ = ["BuckshotApp"]
+from buckshot.core.board import GameBoard
+from buckshot.tui.app import Interface
+
+__all__ = [
+    "GameBoard",
+    "Interface"
+]

@@ -1,5 +1,5 @@
 from typing import override
-from .entity import Player
+from ._entity import Player
 
 class Dealer(Player):
     def __init__(self):

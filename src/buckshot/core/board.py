@@ -1,7 +1,7 @@
-from .entity import Player, Shotgun, Stage
-from .agent import Dealer
-from .action import *
-from .error import ActionError, UninitializedBoardError
+from ._entity import Player, Shotgun, Stage
+from ._agent import Dealer
+from ._action import *
+from ._error import ActionError, UninitializedBoardError
 
 VALID_ACTIONS: dict[str, type[Action]] = {
     "magnifier": UseMagnifierAction,
@@ -12,7 +12,7 @@ VALID_ACTIONS: dict[str, type[Action]] = {
     "gun": UseGunAction
 }
 
-class Board:
+class GameBoard:
     def __init__(self):
         self.shotgun: Shotgun
         self.players : tuple[Player, Player]
