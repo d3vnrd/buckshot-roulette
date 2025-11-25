@@ -11,7 +11,7 @@ from textual.widgets import (
     Footer,
 )
 
-from ._widget import *
+from .widget import *
 
 class BaseScreen(Screen):
     BINDINGS = [("q", "app.switch_mode('default')", "Back")]
@@ -65,18 +65,22 @@ class MainGameScreen(BaseScreen):
         ("space", "player_interact", "Interact")
     ]
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.engine = BuckshotEngine("Player 01", "")
+
     @override
     def set_content(self) -> ComposeResult:
         with Container(id='game-pane'):
-            yield GameStatus()
-            yield GameLogs()
-            yield GameChats()
+            yield GameStatus(self.engine)
+            yield GameLogs(self.engine)
+            yield GameChats(self.engine)
 
         with Container(id="player-pane"):
-            yield PlayersInfo()
-            yield PlayersInventory()
+            yield PlayersInfo(self.engine)
+            yield PlayersInventory(self.engine)
 
-class Interface(App): 
+class TextualBuckshot(App): 
     ENABLE_COMMAND_PALETTE = False
     CSS_PATH = [
         "./style/main.tcss",

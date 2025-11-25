@@ -1,22 +1,17 @@
+from dataclasses import dataclass
+from typing import override
 from collections import deque
 import random as rand
 
+@dataclass
 class Stage:
-    def __init__(self):
-        self.health_cap: int = 2
-        self.items_per_reload: int = 1
-        self.rounds: int = 4
-        self.stage_idx: int = 1
-
-    def next_stage(self):
-        #TODO: adjust values accodingly
-        self.health_cap *= 2
-        self.items_per_reload *= 2
-        self.rounds *= 2
-        self.stage_idx += 1
+    health_cap: int = 2
+    items_per_reload: int = 1
+    gun_capacity: int = 4
+    index: int = 1
 
 class Inventory:
-    __VALID_ITEMS: dict[str, int] = {
+    _valid_items: dict[str, int] = {
         "magnifier": 1,
         "beer": 2,
         "handsaw": 3,
@@ -24,10 +19,10 @@ class Inventory:
         "handcuff": 1
     }
 
-    __INVENTORY_CAP: int = 8
+    _inv_cap: int = 8
 
     def __init__(self):
-        self.capacity: int = self.__INVENTORY_CAP
+        self.capacity: int = self._inv_cap
         self.items: dict[str, int] = {}
 
     @property
@@ -51,7 +46,7 @@ class Inventory:
         
         while items_added < n_items and not self.is_full:
             available = [
-                item for item, cap in self.__VALID_ITEMS.items()
+                item for item, cap in self._valid_items.items()
                 if self.items.get(item, 0) < cap
             ]
             
@@ -71,57 +66,99 @@ class Inventory:
         return self.items.get(item, 0) > 0
 
 class Shotgun:
+    @dataclass
+    class ShotgunState:
+        damage: int
+        bullets_left: int
+        lives: int
+        blanks: int
+        is_empty: bool
+
     def __init__(self):
-        self.damage: int = 1
-        self.chamber: deque[bool] = deque()
+        self._damage: int = 1
+        self._capacity: int = 0
+        self._chamber: deque[bool] = deque()
 
     @property
-    def is_empty(self) -> bool:
-        return len(self.chamber) <= 0
+    def state(self) -> ShotgunState:
+        return self.ShotgunState(
+            damage=self._damage,
+            bullets_left=len(self._chamber),
+            lives=self._chamber.count(True),
+            blanks=self._chamber.count(False),
+            is_empty=len(self._chamber) <= 0
+        )
 
     def peek(self) -> bool|None:
         """See the next shell in the chamber"""
-        if self.is_empty:
+        if self.state.is_empty:
             return None
-        return self.chamber[0]
+        return self._chamber[0]
 
     def eject(self) -> bool|None:
         """Eject current shell in the chamber"""
-        if self.is_empty:
+        if self.state.is_empty:
             return None
-        return self.chamber.pop()
+        return self._chamber.pop()
 
     #TODO: What is the exact rounds for each stage (I, II, & III)
-    def reload(self, rounds: int):
+    def reload(self, capacity: int):
         """Reload new bullets"""
         lives = rand.randint(1, 4)
-        blanks = rounds - lives
+        blanks = capacity - lives
 
         for bullet in [True] * lives + [False] * blanks:
-            self.chamber.append(bullet)
-        rand.shuffle(self.chamber)
-
-    def stats(self):
-        """Get current chamber status"""
-        return self.chamber.count(True), self.chamber.count(False)
+            self._chamber.append(bullet)
+        rand.shuffle(self._chamber)
 
     def cutoff(self):
         """Double damage dealt"""
-        self.damage *= 2
+        self._damage *= 2
 
 class Player:
-    def __init__(self, name:str):
-        self.name: str = name
-        self.turn: bool
-        self.health: int
-        self.inventory: Inventory 
+    turn: bool = True
+    inventory: Inventory = Inventory()
 
-    def create(self, health: int):
+    @dataclass
+    class PlayerState:
+        name: str
+        health: int
+        total_items: int
+        inv_status: dict[str, int]
+        message: str = ""
+
+        def __getitem__(self, key):
+            return getattr(self, key)
+
+    def __init__(self, name:str, health:int):
+        self.name: str = name
+        self.health: int = health
+
+    @property
+    def state(self) -> PlayerState:
+        return self.PlayerState(
+            name=self.name,
+            health=self.health,
+            total_items=self.inventory.total,
+            inv_status=self.inventory.items
+        )
+
+    def reset(self, health: int):
         self.health = health
         self.inventory = Inventory()
         self.turn = True
 
     def get_commands(self) -> list[str]:
+        cmds: list[str] = []
+
+        return cmds
+
+class Dealer(Player):
+    def __init__(self, health: int):
+        super().__init__("Dealer", health)
+
+    @override
+    def get_commands(self):
         cmds: list[str] = []
 
         return cmds

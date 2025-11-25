@@ -9,7 +9,7 @@ from ._error import (
 )
 
 if TYPE_CHECKING: 
-    from ._entity import Player, Shotgun, Stage
+    from .board import BuckshotEngine
 
 @dataclass
 class ActionResult:
@@ -20,17 +20,8 @@ class ActionResult:
     response: str = ""
 
 class Action(ABC):
-    def __init__(
-        self, 
-        actor: Player, 
-        target: Player, 
-        shotgun: Shotgun, 
-        stage: Stage
-    ):
-        self.actor: Player = actor
-        self.target: Player = target
-        self.shotgun: Shotgun = shotgun
-        self.stage: Stage = stage
+    def __init__(self, board: BuckshotEngine):
+        self.board = board
 
     @abstractmethod
     def execute(self) -> ActionResult:
@@ -41,7 +32,7 @@ class Action(ABC):
 class UseGunAction(Action):
     @override
     def execute(self):
-        shell = self.shotgun.eject()
+        shell = self.board.shotgun.eject()
         game_over = False
         skip_turn = False
 
@@ -49,20 +40,20 @@ class UseGunAction(Action):
             raise EmptyChamberError()
 
         if shell is True:
-            self.target.health -= self.shotgun.damage
-            game_over = self.target.health <= 0
+            self.board.target.health -= self.board.shotgun.damage
+            game_over = self.board.target.health <= 0
 
-        if shell is False and self.target is self.actor:
+        if shell is False and self.board.target is self.board.actor:
             skip_turn = True
 
-        self.shotgun.damage = 1
+        self.board.shotgun.damage = 1
         return ActionResult(skip_turn=skip_turn, game_over=game_over)
 
 class ItemAction(Action, ABC):
     def _consume_item(self, item: str):
-        if not self.actor.inventory.has_item(item):
+        if not self.board.actor.inventory.has_item(item):
             raise InsufficientItemsError(item)
-        self.actor.inventory.items[item] -= 1
+        self.board.actor.inventory.items[item] -= 1
 
 # Failed cases: 
 # - Empty chamber (should never happen)
@@ -70,7 +61,7 @@ class ItemAction(Action, ABC):
 class UseMagnifierAction(ItemAction):
     @override
     def execute(self):
-        shell = self.shotgun.peek()
+        shell = self.board.shotgun.peek()
         if shell is None:
             raise EmptyChamberError()
 
@@ -84,7 +75,7 @@ class UseMagnifierAction(ItemAction):
 class UseBeerAction(ItemAction):
     @override
     def execute(self):
-        shell = self.shotgun.eject()
+        shell = self.board.shotgun.eject()
         if shell is None:
             raise EmptyChamberError()
 
@@ -98,10 +89,10 @@ class UseHandsawAction(ItemAction):
     @override
     def execute(self):
         self._consume_item("handsaw")
-        self.shotgun.cutoff()
+        self.board.shotgun.cutoff()
         return ActionResult(
             end_turn=False, 
-            response=f"Doubled shotgun damage, current damage is: {self.shotgun.damage}."
+            response=f"Doubled shotgun damage, current damage is: {self.board.shotgun.damage}."
         )
 
 # Failed cases: 
@@ -110,11 +101,11 @@ class UseHandsawAction(ItemAction):
 class UseCigaretteAction(ItemAction):
     @override
     def execute(self):
-        if self.actor.health >= self.stage.health_cap:
+        if self.board.actor.health >= self.board.stage.health_cap:
             raise InvalidActionError("Already at full health")
 
         self._consume_item("cigarette")
-        self.actor.health += 1
+        self.board.actor.health += 1
         return ActionResult(end_turn=False, response="Healed 1 health.")
 
 # Failed cases:
@@ -123,9 +114,9 @@ class UseCigaretteAction(ItemAction):
 class UseHandcuffAction(ItemAction):
     @override
     def execute(self):
-        if not self.target.turn:
+        if not self.board.target.turn:
             raise InvalidActionError("Target's turn already skipped")
 
         self._consume_item("handcuff")
-        self.target.turn = False
+        self.board.target.turn = False
         return ActionResult(end_turn=False, response="Target's next turn will be skipped")
