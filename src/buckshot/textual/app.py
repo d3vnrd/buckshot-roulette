@@ -13,6 +13,7 @@ from textual.widgets import (
 
 from .widget import *
 
+# ---Main Panels---
 class BaseScreen(Screen):
     BINDINGS = [("q", "app.switch_mode('default')", "Back")]
 
@@ -32,12 +33,15 @@ class DefaultScreen(BaseScreen):
         ("q", "app.quit", "Exit"),
         ("h", "app.switch_mode('help')", "Help"),
         ("c", "app.switch_mode('credit')", "Credit"),
-        ("space", "app.switch_mode('setup')", "Setup")
+        ("space", "enter_game", "Start")
     ]
 
     @override
     def set_content(self):
         yield GameTitle()
+
+    def action_enter_game(self):
+        self.app.push_screen(MainGameScreen())
 
 class HelpScreen(BaseScreen):
     @override
@@ -49,37 +53,17 @@ class CreditScreen(BaseScreen):
     def set_content(self) -> ComposeResult:
         yield Label("This is the credit screen")
 
-class SetupScreen(BaseScreen):
-    BINDINGS = [
-        *BaseScreen.BINDINGS,
-        ("space", "app.switch_mode('board')", "Confirm")
-    ]
-
-    @override
-    def set_content(self) -> ComposeResult:
-        yield Label("This is the setup screen")
-
 class MainGameScreen(BaseScreen):
-    BINDINGS = [
-        ("q", "app.switch_mode('setup')", "Back to setup"),
-        ("space", "player_interact", "Interact")
-    ]
+    _engine = BuckshotEngine()
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.engine = BuckshotEngine("Player 01", "")
+    BINDINGS = []
 
     @override
     def set_content(self) -> ComposeResult:
-        with Container(id='game-pane'):
-            yield GameStatus(self.engine)
-            yield GameLogs(self.engine)
-            yield GameChats(self.engine)
+        yield GameLogs(self._engine)
+        yield PlayersInfo(self._engine)
 
-        with Container(id="player-pane"):
-            yield PlayersInfo(self.engine)
-            yield PlayersInventory(self.engine)
-
+# ---Buckshot App---
 class TextualBuckshot(App): 
     ENABLE_COMMAND_PALETTE = False
     CSS_PATH = [
@@ -92,8 +76,6 @@ class TextualBuckshot(App):
         "default": DefaultScreen,
         "credit": CreditScreen,
         "help": HelpScreen,
-        "setup": SetupScreen,
-        "board": MainGameScreen
     }
 
     def __init__(self, args: list[str] | None = None):

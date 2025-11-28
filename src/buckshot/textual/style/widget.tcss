@@ -13,6 +13,10 @@
     content-align: right middle;
 }
 
+.full-width {
+    width: 1fr;
+}
+
 .with-border {
     border: orange;
 }
@@ -47,9 +51,12 @@ GameTitle .other {
     color: $foreground;
 }
 
+/* ---Game Status--- */
+GameStatus ProgressBar Bar {
+    width: 1fr; /* Make progress bar take full width */
+}
+
 /* ---Players Info--- */
-PlayersInfo .player-cards {
-    width: 100%;
-    height: 1fr;
-    padding: 0; /* Container have their own padding set to 1 */
+PlayersInfo ProgressBar Bar {
+    width: 1fr; /* Make progress bar take full width */
 }

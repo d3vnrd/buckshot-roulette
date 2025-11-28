@@ -45,10 +45,10 @@ class GameStatus(TextualObserver):
 
     gun_capacity = reactive(0)
     gun_bullets_left = reactive(0)
-    curr_turn = reactive("")
+    curr_turn = reactive("?")
     items_per_reload = reactive(0)
     gun_lives = reactive(0)
-    stage = reactive("")
+    stage = reactive("?")
 
     @override
     def compose(self) -> ComposeResult:
@@ -60,9 +60,10 @@ class GameStatus(TextualObserver):
                 total=0, 
                 show_percentage=False, 
                 show_eta=False, 
-                classes="right-align",
+                classes="full-width",
                 id="chamber-bar"
             )
+            yield Label(" 0/0")
 
         with HorizontalGroup():
             yield Label("Current Turn: ")
@@ -93,7 +94,6 @@ class GameStatus(TextualObserver):
     def on_mount(self):
         """Set up watchers"""
         watchers = [
-            # (attr, queried-id, widget, updater(self.query_one, v))
             ("gun_capacity", "#chamber-bar", ProgressBar, lambda u, v: u.update(total=v)),
             ("gun_bullets_left", "#chamber-bar", ProgressBar, lambda u, v: u.update(progress=v)),
             ("curr_turn", "#turn-label", Label, lambda u, v: u.update(v)),
@@ -148,23 +148,18 @@ class GameChats(TextualObserver):
 
 """Reactive Widgets: Player Status"""
 class PlayersInfo(TextualObserver):
-    players: dict[str, dict[str, reactive[str|int]]] = {
-        "player1": {
-            "name": reactive(""),
-            "health": reactive(0),
-            "total_items": reactive(0),
-        },
-        "player2": {
-            "name": reactive(""),
-            "health": reactive(0),
-            "total_items": reactive(0),
-        }
-    }
+    player1_name: reactive[str] = reactive("Player 1")
+    player1_health: reactive[int] = reactive(0)
+    player1_total_items: reactive[int] = reactive(0)
+    
+    player2_name: reactive[str] = reactive("Player 2")
+    player2_health: reactive[int] = reactive(0)
+    player2_total_items: reactive[int] = reactive(0)
 
     @override
     def compose(self) -> ComposeResult:
-        for player in self.players.keys():
-            with Container(classes="player-card"):
+        for player in ["player1", "player2"]:
+            with Container():
                 yield Label("?", classes="pane-title", id=f"{player}-name")
                 
                 with HorizontalGroup():
@@ -173,9 +168,10 @@ class PlayersInfo(TextualObserver):
                         total=0,
                         show_percentage=False,
                         show_eta=False,
-                        classes="right-align",
+                        classes="full-width",
                         id=f"{player}-health"
                     )
+                    yield Label(" 0/0")
                 
                 with HorizontalGroup():
                     yield Label("Total Items: ")
@@ -183,9 +179,14 @@ class PlayersInfo(TextualObserver):
 
     @override
     def on_engine_update(self, state: BuckshotEngine.BuckshotState):
-        for i, player_attrs in enumerate(self.players.values()):
-            for k in player_attrs:
-                player_attrs[k] = state.players[i][k]
+        """Update reactive attributes"""
+        self.player1_name = state.players[0].name
+        self.player1_health = state.players[0].health
+        self.player1_total_items = state.players[0].total_items
+        
+        self.player2_name = state.players[1].name
+        self.player2_health = state.players[1].health
+        self.player2_total_items = state.players[1].total_items
 
     def on_mount(self):
         watchers: dict[str, tuple] = {
@@ -194,14 +195,21 @@ class PlayersInfo(TextualObserver):
             "total_items": (Label, lambda u, v: u.update(str(v)))
         }
 
-        for pid in self.players:
+        def make_watcher(query, widget_cls, handler):
+            def watch_fn(v):
+                widget = self.query_one(query, widget_cls)
+                handler(widget, v)
+            return watch_fn
+
+        for pid in ["player1", "player2"]:
             for attr, (widget, handler) in watchers.items():
                 query = f"#{pid}-{attr.replace("_", "-")}"
+                attr_name = f"{pid}_{attr}"
+
                 self.watch(
-                    self.players[pid],  # pyright: ignore[reportArgumentType]
-                    attr,
-                    lambda v, q=query, w=widget, h=handler:
-                        h(self.query_one(q, w), v)
+                    self,
+                    attr_name,
+                    make_watcher(query, widget, handler)
                 )
 
 class PlayersInventory(TextualObserver):
@@ -210,3 +218,4 @@ class PlayersInventory(TextualObserver):
         yield Label("Detail Inventory", classes="pane-title")
         #TODO: Learn how to use table to show player inventories
         yield DataTable()
+

@@ -11,7 +11,7 @@ BaseScreen #main-contents {
     padding: 0 1 0 1;
 }
 
-BaseScreen Footer {
+Footer {
     align: right middle;
     background: $background;
 }
@@ -39,3 +39,11 @@ MainGameScreen #player-pane {
     grid-rows: 25% 75%;
     padding-left: 1;
 }
+
+/* Player Actions Handler */
+PlayerActionsHandler {
+    align-vertical: bottom;
+    background: rgba(0, 0, 0, 0);
+}
+
+

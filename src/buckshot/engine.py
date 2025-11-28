@@ -15,8 +15,8 @@ class BuckshotEngine:
     _curr_idx: int = 0
     _observers: list[BuckshotObserver] = []
 
-    _stage: Stage
-    _shotgun: Shotgun
+    _stage: Stage = Stage()
+    _shotgun: Shotgun = Shotgun()
     _players : tuple[Player, Player]
 
     @dataclass
@@ -36,15 +36,6 @@ class BuckshotEngine:
             state: BuckshotEngine.BuckshotState
         ) -> None:
             pass
-
-    def __init__(self, p01name, p02name) -> None:
-        self._stage = Stage()
-        self._shotgun = Shotgun()
-        self._players = (
-            Player(p01name, self._stage.health_cap),
-            Player(p02name, self._stage.health_cap)
-            if p02name else Dealer(self._stage.health_cap)
-        )
 
     @property
     def state(self) -> BuckshotState:
@@ -87,3 +78,12 @@ class BuckshotEngine:
 
     def _action_execute(self):
         pass
+
+    def setup(self, p01name:str, p02name:str):
+        self._players = (
+            Player(p01name, self._stage.health_cap),
+            Player(p02name, self._stage.health_cap)
+            if p02name else Dealer(self._stage.health_cap)
+        )
+
+        self._notify()
