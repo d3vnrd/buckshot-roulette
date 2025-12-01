@@ -1,4 +1,4 @@
-from buckshot import TextualBuckshot
+from buckshot.app import TextualBuckshot
 
 #TODO: add supports for cli commands to quickly setup and play the game
 def parse_args():

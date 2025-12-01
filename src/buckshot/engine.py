@@ -76,9 +76,6 @@ class BuckshotEngine:
         for player in self._players:
             player.reset(self._stage.health_cap)
 
-    def _action_execute(self):
-        pass
-
     def setup(self, p01name:str, p02name:str):
         self._players = (
             Player(p01name, self._stage.health_cap),
@@ -86,4 +83,7 @@ class BuckshotEngine:
             if p02name else Dealer(self._stage.health_cap)
         )
 
+        self._notify()
+
+    def execute(self, inputs: list[str]):
         self._notify()

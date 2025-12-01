@@ -1,5 +1,5 @@
 from .engine import BuckshotEngine
-from .textual import TextualBuckshot
+from .app import TextualBuckshot
 
 __all__ = [
     "BuckshotEngine",

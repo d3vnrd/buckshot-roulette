@@ -1,3 +1,51 @@
+/* Screen Layout */
+BaseScreen Header {
+    width: 100%;
+    height: 1;
+    padding: 0 1 0 1;
+}
+
+BaseScreen #main-contents {
+    width: 100%;
+    height: 1fr; /* Take-up the rest of the screen */
+    padding: 0 1 0 1;
+}
+
+Footer {
+    align: right middle;
+    background: $background;
+}
+
+/* ---Main Game Screen--- */
+MainGameScreen #main-contents {
+    layout: horizontal;
+}
+
+MainGameScreen Log {
+    background: $background;
+    scrollbar-visibility: hidden;
+}
+
+MainGameScreen #game-pane {
+    layout: grid;
+    grid-size: 1 3;
+    grid-rows: 25% 40% 35%;
+    padding-right: 1;
+}
+
+MainGameScreen #player-pane {
+    layout: grid;
+    grid-size: 1 2;
+    grid-rows: 25% 75%;
+    padding-left: 1;
+}
+
+/* Player Actions Handler */
+PlayerActionsHandler {
+    align-vertical: bottom;
+    background: rgba(0, 0, 0, 0);
+}
+
 /* ---Common styles--- */
 .pane-title {
     width: 100%;
