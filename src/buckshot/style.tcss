@@ -1,110 +1,46 @@
-/* Screen Layout */
-BaseScreen Header {
-    width: 100%;
-    height: 1;
-    padding: 0 1 0 1;
-}
-
-BaseScreen #main-contents {
-    width: 100%;
-    height: 1fr; /* Take-up the rest of the screen */
-    padding: 0 1 0 1;
-}
-
-Footer {
-    align: right middle;
-    background: $background;
-}
-
-/* ---Main Game Screen--- */
-MainGameScreen #main-contents {
-    layout: horizontal;
-}
-
-MainGameScreen Log {
-    background: $background;
-    scrollbar-visibility: hidden;
-}
-
-MainGameScreen #game-pane {
-    layout: grid;
-    grid-size: 1 3;
-    grid-rows: 25% 40% 35%;
-    padding-right: 1;
-}
-
-MainGameScreen #player-pane {
-    layout: grid;
-    grid-size: 1 2;
-    grid-rows: 25% 75%;
-    padding-left: 1;
-}
-
-/* Player Actions Handler */
-PlayerActionsHandler {
-    align-vertical: bottom;
-    background: rgba(0, 0, 0, 0);
-}
-
 /* ---Common styles--- */
-.pane-title {
-    width: 100%;
-    height: auto;
-    content-align: center middle;
-    text-style: bold;
-    color: $accent;
-}
-
 .right-align {
     width: 1fr;
-    align: right middle;
     content-align: right middle;
 }
 
-.full-width {
+.hidden-prompt {
+    background: rgba(0, 0, 0, 0)
+}
+
+.screen-padding {
+    padding: 0 1 0 1;
+}
+
+/* ---App Elements--- */
+BaseScreen #header {
     width: 1fr;
+    height: 1;
 }
 
-.with-border {
-    border: orange;
-}
-
-/* ---Header--- */
-Header Label {
-    width: 1fr;
-}
-
-/* ---Game Title--- */
-GameTitle {
+DefaultScreen #contents {
     align: center middle;
 }
 
-GameTitle Label {
-    width: 100%;
-    height: auto;
+DefaultScreen Static {
     content-align: center middle;
 }
 
-GameTitle #title {
-    text-style: bold;
-    color: $accent;
+BoardScreen Logs {
+    width: 1fr;
+    height: 2fr;
+    scrollbar-visibility: hidden;
+    background: $background;
 }
 
-GameTitle #divider {
-    color: $foreground;
+BoardScreen Logs:focus {
+    scrollbar-visibility: visible;
+    scrollbar-background: $background;
+    scrollbar-color: orange;
+    /* background: rgba(0, 0, 0, 0); */
 }
 
-GameTitle .other {
-    text-style: italic;
-    color: $foreground;
-}
-
-/* ---Game Status--- */
-GameStatus ProgressBar Bar {
-    width: 1fr; /* Make progress bar take full width */
-}
-
-/* ---Players Info--- */
-PlayersInfo ProgressBar Bar {
-    width: 1fr; /* Make progress bar take full width */
+BoardScreen #players-info {
+    width: 1fr;
+    height: 1fr;
 }
