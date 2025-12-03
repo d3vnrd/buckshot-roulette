@@ -1,29 +1,20 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, override
+from typing import override
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
-if TYPE_CHECKING:
-    from buckshot.engine import BuckshotEngine
+from buckshot.entity import Player
 
 class Action(ABC):
     @dataclass
     class ActionResult:
         end_turn: bool = True
-        game_over: bool = False
         skip_turn: bool = False
         response: str = ""
 
-    def __init__(self, engine: BuckshotEngine|None = None):
-        self._engine = engine
-
-    @property
-    def mediator(self) -> BuckshotEngine|None:
-        return self._engine
-
-    @mediator.setter
-    def mediator(self, engine: BuckshotEngine) -> None:
-        self._engine = engine
+    def __init__(self, actor: Player, target: Player):
+        self.actor = actor
+        self.target = target
 
     @abstractmethod
     def execute(self) -> ActionResult:
@@ -34,7 +25,8 @@ class Action(ABC):
 class UseGunAction(Action):
     @override
     def execute(self):
-        return self.ActionResult()
+        self.actor.inventory.add_items(1)
+        return self.ActionResult(response="Use Gun")
 
 # Failed cases: 
 # - Empty chamber (should never happen)
@@ -42,7 +34,7 @@ class UseGunAction(Action):
 class UseMagnifierAction(Action):
     @override
     def execute(self):
-        return self.ActionResult()
+        return self.ActionResult(response="Use Magnifier")
 
 # Failed cases: 
 # - Empty chamber (should never happen)
@@ -50,7 +42,7 @@ class UseMagnifierAction(Action):
 class UseBeerAction(Action):
     @override
     def execute(self):
-        return self.ActionResult()
+        return self.ActionResult(response="Use Beer")
 
 # Failed cases: 
 # - Does not have item

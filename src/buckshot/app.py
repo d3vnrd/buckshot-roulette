@@ -4,14 +4,14 @@ from typing import override
 from abc import abstractmethod
 
 from textual import on, work
-from textual.containers import Container, Horizontal, HorizontalGroup, Vertical
+from textual.containers import Container, Horizontal, ScrollableContainer
 from textual.reactive import reactive
 from textual.screen import ModalScreen, Screen
 from textual.app import ComposeResult, App
 from textual.widgets import (
     Input,
     Label,
-    ProgressBar,
+    Pretty,
     RichLog,
     Static,
 )
@@ -124,67 +124,24 @@ class BoardScreen(BaseScreen):
             if new and new != old:
                 self.write(new)
 
-    class PlayerInfo(Horizontal, BuckshotEngine.BuckshotObserver):
-        _pname = reactive("Player")
-        _health = reactive(0)
-        _health_cap = reactive(0)
-        _total_items = reactive(0)
-
+    class PlayerInfo(ScrollableContainer, BuckshotEngine.BuckshotObserver):
         def __init__(self, engine: BuckshotEngine, idx: int) -> None:
-            super().__init__()
+            super().__init__(id=f"player{idx}-info")
             engine.attach(self)
             self.idx = idx
 
+        def compose(self) -> ComposeResult:
+            yield Pretty(None)
+
         @override
         def on_engine_update(self, state: BuckshotEngine.BuckshotState) -> None:
-            player = state.players[self.idx]
-            self._pname = player.name
-            self._health = player.health
-            self._total_items = player.total_items
-            self._health_cap = state.stage.health_cap
-
-        @override
-        def compose(self) -> ComposeResult:
-            yield Label("?", id=f"player{self.idx}-name")
-
-            with HorizontalGroup(id=f"player{self.idx}-health"):
-                yield ProgressBar(
-                    total=0,
-                    show_percentage=False,
-                    show_eta=False,
-                    id=f"player{self.idx}-health-bar"
-                )
-                yield Static(" ")
-                yield Label("?", id=f"player{self.idx}-health-indicator")
-
-            yield Label("Total items: ?", id=f"player{self.idx}-total-items")
-
-        def on_mount(self):
-           watchers: dict[str, tuple] = {
-                "_pname": (f"#player{self.idx}-name", Label, lambda t, v: t.update(v + ": ")),
-                "_health": (f"#player{self.idx}-health-bar", ProgressBar, lambda t, v: t.update(progress=v)),
-                "_total_items": (f"#player{self.idx}-total-items", Label, lambda t, v: t.update(f"Total items: {v}")),
-                "_health_cap": (f"#player{self.idx}-health-bar", ProgressBar, lambda t, v: t.update(total=v))
-            }
-    
-           def make_watcher(query, widget, handler):
-                def watch_fn(v):
-                    target = self.query_one(query, widget)
-                    handler(target, v)
-                return watch_fn
-    
-           for attr, (query, widget, handler) in watchers.items():
-               self.watch(
-                   self,
-                   attr,
-                   make_watcher(query, widget, handler)
-               )
+            self.query_one(Pretty).update(state.players[self.idx])
 
     # ---Class business logic---
     @override
     def assign(self) -> ComposeResult:
         yield self.Logs(self._engine)
-        with Vertical():
+        with Container(id="board-players-info"):
             yield self.PlayerInfo(self._engine, 0)
             yield self.PlayerInfo(self._engine, 1)
 

@@ -28,7 +28,7 @@ DefaultScreen Static {
 
 BoardScreen Logs {
     width: 1fr;
-    height: 2fr;
+    height: 1fr;
     scrollbar-visibility: hidden;
     background: $background;
 }
@@ -36,11 +36,23 @@ BoardScreen Logs {
 BoardScreen Logs:focus {
     scrollbar-visibility: visible;
     scrollbar-background: $background;
-    scrollbar-color: orange;
-    /* background: rgba(0, 0, 0, 0); */
+    scrollbar-color: $background;
+    background: rgba(0, 0, 0, 0);
 }
 
-BoardScreen #players-info {
+BoardScreen #board-players-info {
     width: 1fr;
     height: 1fr;
+    layout: grid;
+    grid-size: 2;
+}
+
+BoardScreen #board-players-info ScrollableContainer {
+    height: 1fr;
+    padding: 2;
+    content-align-vertical: middle;
+    overflow: hidden auto;
+    scrollbar-visibility: visible;
+    scrollbar-background: $background;
+    scrollbar-color: orange;
 }
