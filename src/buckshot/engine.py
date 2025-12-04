@@ -19,7 +19,7 @@ class BuckshotEngine:
     _observers: list[BuckshotObserver] = []
 
     _shotgun: Shotgun = Shotgun()
-    _players : tuple[Player, Player]
+    _players : tuple[Player, ...]
 
     @dataclass(frozen=True)
     class BuckshotState:
@@ -37,6 +37,13 @@ class BuckshotEngine:
             state: BuckshotEngine.BuckshotState
         ) -> None:
             pass
+
+    def __init__(self, p1_name: str, p2_name: str) -> None:
+        self._players = (
+            Player(p1_name, self._health_cap),
+            Player(p2_name, self._health_cap)
+            if p2_name else Dealer(self._health_cap)
+        )
 
     """Observer + Mediator = Transmitter"""
     def attach(self, observer: BuckshotObserver) -> None:
@@ -79,25 +86,14 @@ class BuckshotEngine:
         self._items_per_reload = 4
         self._stage += 1
 
-    def reset(self):
+    def reset(self, hard: bool = False):
         self._shotgun.reload()
         for player in self._players:
-            player.reset(self._health_cap)
+            if hard:
+                player.reset(self._health_cap)
             player.inventory.add_items(self._items_per_reload)
-        self._turn = 0
-        self._notify("Preparing game board for the next stage...")
 
-    def setup(self, p01name:str, p02name:str):
-        self._players = (
-            Player(p01name, self._health_cap),
-            Player(p02name, self._health_cap)
-            if p02name else Dealer(self._health_cap)
-        )
-
-        self._shotgun.reload()
-        for player in self._players:
-            added_items = player.inventory.add_items(self._items_per_reload)
-            self._notify(f"{player.name} recieved: " +" | ".join(added_items))
+        self._notify()
 
     def execute(self, args: list[str]):
         cmd = args[0]

@@ -3,6 +3,7 @@ from importlib.metadata import PackageNotFoundError, version
 from typing import override
 from abc import abstractmethod
 
+
 from textual import on, work
 from textual.containers import Container, Horizontal, ScrollableContainer
 from textual.reactive import reactive
@@ -11,7 +12,6 @@ from textual.app import ComposeResult, App
 from textual.widgets import (
     Input,
     Label,
-    Pretty,
     RichLog,
     Static,
 )
@@ -27,10 +27,10 @@ class BaseScreen(Screen):
             yield Label(f"[dim]{self.app.title} - {self.app.sub_title}[/dim]")
             yield Label("[dim]13:10:58[/dim]", classes="right-align")
 
-        with Container(id="contents"):
+        with ScrollableContainer(id="contents"):
             yield from self.assign()
 
-    def key_escape(self):
+    def key_escape(self) -> None:
         self.dismiss()
 
     @abstractmethod
@@ -41,46 +41,10 @@ class DefaultScreen(BaseScreen):
     BINDINGS = [
         ("h", "app.push_screen('help')", "Help"),
         ("c", "app.push_screen('credit')", "Credit"),
-        ("space", "app.push_screen('game')", "Start"),
+        ("space", "load_game", "Start"),
     ]
 
-    @override
-    def key_escape(self):
-        self.app.exit()
-
-    @override
-    def assign(self):
-        yield Static("[bold orange]BUCKSHOTxROULETTE[/bold orange]", id="title")
-        yield Static(f"[dim]x{'-'*45}x[/dim]", id="divider")
-        yield Static("[dim]Based on Buckshot Roulette by Mike Klubnika[/dim]", classes="other")
-        yield Static("[dim]<space> Starts[/dim]", classes="other")
-        yield Static("[dim]<h> Help[/dim]", classes="other")
-        yield Static("[dim]<c> Credit[/dim]", classes="other")
-        yield Static("[dim]<escape> Exit[/dim]", classes="other")
-
-class HelpScreen(BaseScreen):
-    @override
-    def assign(self) -> ComposeResult:
-        yield Label("This is the help screen")
-
-class CreditScreen(BaseScreen):
-    @override
-    def assign(self) -> ComposeResult:
-        yield Label("This is the credit screen")
-
-class BoardScreen(BaseScreen):
-    _engine = BuckshotEngine()
-
-    BINDINGS = [
-        ("space", "parse_item('gun')"),
-        *[(str(i), f"parse_item('{name}')") for i, name in enumerate(
-            ["magnifier", "beer", "handsaw", "cigarette", "handcuff"],
-            start=1
-        )]
-    ]
-
-    # ---Extra prompts to handle player interactions and dynamic bindings---
-    class SetupPrompt(ModalScreen[tuple]):
+    class SetupPrompt(ModalScreen[tuple[str, str]]):
         def compose(self) -> ComposeResult:
             yield Label("Enter player's names:")
             yield Input(compact=True, max_length=8, id="input01")
@@ -96,10 +60,50 @@ class BoardScreen(BaseScreen):
                 self.set_focus(self.query_one("#input01"))
                 return
 
-            p01name = self.query_one("#input01", Input).value
-            p02name = self.query_one("#input02", Input).value
-            self.dismiss((p01name, p02name))
+            self.dismiss((
+                self.query_one("#input01", Input).value,
+                self.query_one("#input02", Input).value
+            ))
 
+    @override
+    def key_escape(self):
+        self.app.exit()
+
+    @override
+    def assign(self):
+        yield Static("[bold orange]BUCKSHOTxROULETTE[/bold orange]", id="title")
+        yield Static(f"[dim]x{'-'*45}x[/dim]", id="divider")
+        yield Static("[dim]Based on Buckshot Roulette by Mike Klubnika[/dim]")
+        yield Static("[dim]<space> Starts[/dim]")
+        yield Static("[dim]<h> Help[/dim]")
+        yield Static("[dim]<c> Credit[/dim]")
+        yield Static("[dim]<escape> Exit[/dim]")
+
+    @work
+    async def action_load_game(self):
+        players = await self.app.push_screen_wait(self.SetupPrompt())
+        self.app.push_screen(BoardScreen(*players))
+
+class HelpScreen(BaseScreen):
+    @override
+    def assign(self) -> ComposeResult:
+        yield Label("This is the help screen")
+
+class CreditScreen(BaseScreen):
+    @override
+    def assign(self) -> ComposeResult:
+        yield Label("This is the credit screen")
+
+class BoardScreen(BaseScreen):
+    BINDINGS = [
+        ("space", "parse_item('gun')"),
+        *[(str(i), f"parse_item('{name}')") for i, name in enumerate(
+            ["magnifier", "beer", "handsaw", "cigarette", "handcuff"],
+            start=1
+        )],
+    ]
+
+    # ---Extra prompts to handle player interactions and dynamic bindings---
     class TargetPrompt(ModalScreen[str|None]):
         DEFAULT_CLASSES = "hidden-prompt"
         BINDINGS = [
@@ -108,12 +112,21 @@ class BoardScreen(BaseScreen):
             ("escape", "dismiss")
         ]
 
+    class ConfirmExit(ModalScreen[bool]):
+        BINDINGS = [
+            ("y", "dismiss(True)"),
+            ("n", "dismiss(False)")
+        ]
+
+        def compose(self) -> ComposeResult:
+            yield Static("You scare? Y|N")
+
     # ---Screen widgets---
-    class Logs(RichLog, BuckshotEngine.BuckshotObserver):
+    class GameLogs(RichLog, BuckshotEngine.BuckshotObserver):
         message: reactive[str] = reactive("")
 
         def __init__(self, engine: BuckshotEngine) -> None:
-            super().__init__(id="game-logs")
+            super().__init__()
             engine.attach(self)
 
         @override
@@ -124,42 +137,84 @@ class BoardScreen(BaseScreen):
             if new and new != old:
                 self.write(new)
 
-    class PlayerInfo(ScrollableContainer, BuckshotEngine.BuckshotObserver):
-        def __init__(self, engine: BuckshotEngine, idx: int) -> None:
-            super().__init__(id=f"player{idx}-info")
+    class GameStatus(Container, BuckshotEngine.BuckshotObserver):
+
+        def __init__(self, engine: BuckshotEngine) -> None:
+            super().__init__()
             engine.attach(self)
-            self.idx = idx
+
+        @property
+        def title(self, title: str = "BUCKSHOTxROULETTE", fill_char:str = "-"):
+            container_width = self.size.width
+            
+            available_width = container_width - len(title) - 4  # -4 for "x x" and spaces
+            
+            if available_width > 0:
+                fill_left = available_width // 2
+                fill_right = available_width - fill_left  # Handle odd widths
+                
+                centered = f"x{fill_char * fill_left} {title} {fill_char * fill_right}x"
+            else:
+                centered = f"x {title} x"
+            
+            return centered
 
         def compose(self) -> ComposeResult:
-            yield Pretty(None)
+            yield Static(self.title)
 
         @override
-        def on_engine_update(self, state: BuckshotEngine.BuckshotState) -> None:
-            self.query_one(Pretty).update(state.players[self.idx])
+        def on_engine_update(self, state: BuckshotEngine.BuckshotState):
+            pass
+
+        def on_resize(self):
+            self.query_one(Static).update(self.title)
 
     # ---Class business logic---
+    def __init__(self, p1_name: str, p2_name: str) -> None:
+        super().__init__()
+        self._engine = BuckshotEngine(p1_name, p2_name)
+
     @override
     def assign(self) -> ComposeResult:
-        yield self.Logs(self._engine)
-        with Container(id="board-players-info"):
-            yield self.PlayerInfo(self._engine, 0)
-            yield self.PlayerInfo(self._engine, 1)
+        yield self.GameStatus(self._engine)
+        # yield self.GameLogs(self._engine)
 
     def write(self, mess: str):
-        self.query_one(self.Logs).message = mess
+        self.query_one(self.GameLogs).message = mess
+
+    @override
+    def key_escape(self) -> None:
+        self.action_confirm_exit()
+
+    def on_mount(self):
+        self._engine.reset()
+
+    def on_resize(self):
+        width, height = self.app.size
+        # logs = self.query_one(self.GameLogs)
+        stats = self.query_one(self.GameStatus)
+
+        if width/height < 3.0:
+            # logs.styles.width = "1fr"
+            stats.styles.width = "1fr"
+            return
+
+        # logs.styles.width = "60%"
+        stats.styles.width = "60%"
 
     @work
-    async def on_mount(self):
-        self._engine.setup(*await self.app.push_screen_wait(self.SetupPrompt()))
+    async def action_confirm_exit(self):
+        if await self.app.push_screen_wait(self.ConfirmExit()):
+            self.dismiss()
 
     @work
     async def action_parse_item(self, item: str):
-        if item not in ["magnifier", "beer", "handsaw", "cigarette", "handcuff", "gun"]:
+        if item not in self._engine._valid_actions:
             return
 
         actions = [item]
         if item == "gun":
-            self.write("Choose a target: <1> self | <2> opponent")
+            self.write(" | ".join(["󱆉", "󱄾", "󰍉", "󱄖", "󰹈"]))
             target = await self.app.push_screen_wait(self.TargetPrompt())
 
             if target is None:
@@ -178,7 +233,6 @@ class TextualBuckshot(App):
         "default": DefaultScreen,
         "credit": CreditScreen,
         "help": HelpScreen,
-        "game": BoardScreen,
     }
 
     def __init__(self, args: list[str] | None = None):

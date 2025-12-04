@@ -18,41 +18,31 @@ BaseScreen #header {
     height: 1;
 }
 
-DefaultScreen #contents {
+BaseScreen #contents {
+    width: 1fr;
+    height: 1fr;
     align: center middle;
+    border: round orange;
 }
 
 DefaultScreen Static {
     content-align: center middle;
 }
 
-BoardScreen Logs {
-    width: 1fr;
-    height: 1fr;
+BoardScreen GameLogs {
+    height: 90%;
     scrollbar-visibility: hidden;
     background: $background;
+    padding: 0 1 0 1;
 }
 
-BoardScreen Logs:focus {
+BoardScreen GameLogs:focus {
     scrollbar-visibility: visible;
     scrollbar-background: $background;
     scrollbar-color: $background;
-    background: rgba(0, 0, 0, 0);
+    background: rgba(0, 0, 0, 10);
 }
 
-BoardScreen #board-players-info {
-    width: 1fr;
-    height: 1fr;
-    layout: grid;
-    grid-size: 2;
-}
-
-BoardScreen #board-players-info ScrollableContainer {
-    height: 1fr;
-    padding: 2;
-    content-align-vertical: middle;
-    overflow: hidden auto;
-    scrollbar-visibility: visible;
-    scrollbar-background: $background;
-    scrollbar-color: orange;
+BoardScreen GameStatus {
+    height: 90%;
 }
