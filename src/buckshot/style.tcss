@@ -12,37 +12,49 @@
     padding: 0 1 0 1;
 }
 
-/* ---App Elements--- */
-BaseScreen #header {
-    width: 1fr;
-    height: 1;
+.with-border {
+    border: orange;
 }
 
-BaseScreen #contents {
-    width: 1fr;
-    height: 1fr;
+/* ---App Elements--- */
+BaseScreen {
     align: center middle;
-    border: round orange;
+    border: ascii green;
+    border-title-align: center;
+    border-subtitle-align: right;
 }
 
 DefaultScreen Static {
     content-align: center middle;
 }
 
+BoardScreen GameStatus {
+    column-span: 2;
+    align: center middle;
+    border: ascii white;
+}
+
+BoardScreen #game-status-content {
+    width: 60%;
+    height: 1fr;
+    padding: 1 5 1 5;
+    align: center middle;
+}
+
 BoardScreen GameLogs {
-    height: 90%;
+    height: 1fr;
     scrollbar-visibility: hidden;
     background: $background;
-    padding: 0 1 0 1;
+    padding: 1;
 }
 
 BoardScreen GameLogs:focus {
     scrollbar-visibility: visible;
     scrollbar-background: $background;
     scrollbar-color: $background;
-    background: rgba(0, 0, 0, 10);
+    background: rgba(0, 0, 0, 0);
 }
 
-BoardScreen GameStatus {
-    height: 90%;
+BoardScreen #bot-panel {
+    border: ascii white;
 }

@@ -12,12 +12,12 @@ class BuckshotEngine:
         "gun": UseGunAction
     }
 
-    _stage: int = 0
+    _stage: int = 1
     _turn: int = 0
     _health_cap: int = 3 # I: 3, II: 4, III: 5
     _items_per_reload: int = 2 # I: 2, II: 4, III: 4
-    _observers: list[BuckshotObserver] = []
 
+    _observers: list[BuckshotObserver]
     _shotgun: Shotgun = Shotgun()
     _players : tuple[Player, ...]
 
@@ -26,6 +26,7 @@ class BuckshotEngine:
         message: str
         stage: int
         turn: int
+        items_per_reload: int
         players: tuple[Player.PlayerState, ...]
         shotgun: Shotgun.ShotgunState
         winner: Player|None
@@ -39,6 +40,7 @@ class BuckshotEngine:
             pass
 
     def __init__(self, p1_name: str, p2_name: str) -> None:
+        self._observers = []
         self._players = (
             Player(p1_name, self._health_cap),
             Player(p2_name, self._health_cap)
@@ -56,6 +58,7 @@ class BuckshotEngine:
                     message = message,
                     stage = self._stage,
                     turn = self._turn,
+                    items_per_reload=self._items_per_reload,
                     players = tuple(p.state for p in self._players),
                     shotgun = self._shotgun.state,
                     winner = self._get_winner()
