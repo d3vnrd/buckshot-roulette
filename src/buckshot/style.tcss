@@ -24,10 +24,6 @@ BaseScreen {
     border-subtitle-align: right;
 }
 
-DefaultScreen Static {
-    content-align: center middle;
-}
-
 BoardScreen GameStatus {
     column-span: 2;
     align: center middle;

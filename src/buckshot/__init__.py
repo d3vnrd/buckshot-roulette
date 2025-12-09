@@ -1,7 +1,7 @@
 from .engine import BuckshotEngine
-from .app import TextualBuckshot
+from .app import BuckshotApp
 
 __all__ = [
     "BuckshotEngine",
-    "TextualBuckshot"
+    "BuckshotApp"
 ]

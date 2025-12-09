@@ -24,7 +24,7 @@ class BuckshotEngine:
     @dataclass(frozen=True)
     class BuckshotState:
         message: str
-        stage: int
+        stage: str
         turn: int
         items_per_reload: int
         players: tuple[Player.PlayerState, ...]
@@ -56,7 +56,7 @@ class BuckshotEngine:
             observer.on_engine_update(
                 self.BuckshotState(
                     message = message,
-                    stage = self._stage,
+                    stage = {1: "I", 2: "II", 3: "III"}.get(self._stage, "?"),
                     turn = self._turn,
                     items_per_reload=self._items_per_reload,
                     players = tuple(p.state for p in self._players),
