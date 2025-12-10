@@ -18,8 +18,8 @@ class BuckshotEngine:
     _items_per_reload: int = 2 # I: 2, II: 4, III: 4
 
     _observers: list[BuckshotObserver]
-    _shotgun: Shotgun = Shotgun()
     _players : tuple[Player, ...]
+    _shotgun: Shotgun
 
     @dataclass(frozen=True)
     class BuckshotState:
@@ -39,13 +39,9 @@ class BuckshotEngine:
         ) -> None:
             pass
 
-    def __init__(self, p1_name: str, p2_name: str) -> None:
+    def __init__(self) -> None:
         self._observers = []
-        self._players = (
-            Player(p1_name, self._health_cap),
-            Player(p2_name, self._health_cap)
-            if p2_name else Dealer(self._health_cap)
-        )
+        self._shotgun = Shotgun()
 
     """Observer + Mediator = Transmitter"""
     def attach(self, observer: BuckshotObserver) -> None:
@@ -88,6 +84,17 @@ class BuckshotEngine:
         self._health_cap += 1 if self._health_cap <= 5 else 0
         self._items_per_reload = 4
         self._stage += 1
+
+    @property
+    def ready(self):
+        return True if hasattr(self, "_players") else False
+
+    def setup(self, p1_name: str, p2_name: str = ""):
+        self._players = (
+            Player(p1_name, self._health_cap),
+            Player(p2_name, self._health_cap)
+            if p2_name else Dealer(self._health_cap)
+        )
 
     def reset(self, hard: bool = False):
         self._shotgun.reload()

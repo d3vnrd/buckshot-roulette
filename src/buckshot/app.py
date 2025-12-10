@@ -1,196 +1,30 @@
 from __future__ import annotations
 from abc import abstractmethod
-from importlib.metadata import PackageNotFoundError, version
 from typing import TypeVar, override
+from importlib.metadata import PackageNotFoundError, version
 
+from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, ScrollableContainer
-from textual.css.query import NoMatches
+from textual.containers import Container, Horizontal, ScrollableContainer
 from textual.reactive import reactive
-from textual.screen import ModalScreen
+from textual.screen import ModalScreen, Screen
+from textual.widget import Widget
 from textual.widgets import (
+    Footer,
+    Input,
+    Label,
     RichLog,
     Static
 )
 
 from buckshot.engine import BuckshotEngine
 
-T = TypeVar("T")
-
-class BuckshotApp(App): 
-    class Prompt(ModalScreen[T]):
-        BINDINGS = [('escape', 'dismiss')]
-        DEFAULT_CSS = """
-        Prompt {}
-        """
-
-    class MainScreen(Container, BuckshotEngine.BuckshotObserver):
-        DEFAULT_CSS = """
-        MainScreen {
-            width: 1fr;
-            column_span: 2;
-            align: center middle;
-        }
-        """
-
-        class TitleView(ScrollableContainer):
-            DEFAULT_CSS = """
-            TitleView {
-                width: 60%;
-                height: 1fr;
-                align: center middle;
-            }
-
-            TitleView Static {
-                width: 1fr;
-                height: 1;
-            }
-            """
-
-            def compose(self) -> ComposeResult:
-                yield Static("Title", id="title")
-                yield Static("<space> Start", id="start")
-
-            @abstractmethod
-            def on_update(self, state: BuckshotEngine.BuckshotState) -> None:
-                pass
-
-        class BoardView(TitleView):
-            DEFAULT_CSS = """
-            BoardView {
-                layout: grid;
-                grid-size: 2;
-            }
-            """
-
-            chamber: reactive[str] = reactive("?")
-            turn: reactive[str] = reactive("?")
-            items: reactive[str] = reactive("?")
-            stage: reactive[str] = reactive("?")
-
-            @override
-            def compose(self) -> ComposeResult:
-                yield Static("Bullets Left:")
-                yield Static(self.chamber, id="status-chamber")
-                yield Static("Current Turn:")
-                yield Static(self.turn, id="status-turn")
-                yield Static("Items per reload:")
-                yield Static(self.items, id="status-items")
-                yield Static("Stage:")
-                yield Static(self.stage, id="status-stage")
-
-            @override
-            def on_update(self, state: BuckshotEngine.BuckshotState) -> None:
-                self.chamber = str(state.shotgun.bullets_left)
-                self.turn = state.players[state.turn].name
-                self.items = str(state.items_per_reload)
-                self.stage = state.stage
-
-            def on_mount(self):
-                for attr in ["chamber", "turn", "items", "stage"]:
-                    self.watch(
-                        self, attr, 
-                        lambda v: self.query_one(f"#status-{attr}", Static).update(v)
-                    )
-
-        class HelpView(TitleView):
-            @override
-            def compose(self) -> ComposeResult:
-                yield Static("Help", id="help-title")
-                yield Static("Use keys wisely", id="help-text")
-
-        class CreditView(TitleView):
-            @override
-            def compose(self) -> ComposeResult:
-                yield Static("Credit", id="credit-title")
-                yield Static("Made by meh!", id="credit-text")
-
-        # Reactive var to change board view: title, board, help, credit
-        view: reactive[str] = reactive('title', recompose=True)
-
-        def __init__(self, engine: BuckshotEngine) -> None:
-            super().__init__()
-            engine.attach(self)
-
-        def compose(self) -> ComposeResult:
-            match self.view:
-                case 'board':
-                    yield self.BoardView()
-                case 'credit':
-                    yield self.CreditView()
-                case 'help':
-                    yield self.HelpView()
-                case _:
-                    yield self.TitleView()
-
-        @override
-        def on_engine_update(self, state: BuckshotEngine.BuckshotState) -> None:
-            try:
-                self.query_one(self.BoardView).on_update(state)
-            except NoMatches:
-                return
-
-    class Logs(RichLog, BuckshotEngine.BuckshotObserver):
-        message: reactive[str] = reactive("")
-
-        DEFAULT_CSS = """
-        Logs {
-            background: $background;
-            padding: 1;
-        }
-
-        Logs:focus {
-            background: rgba(0, 0, 0, 0);
-        }
-        """
-
-        def __init__(self, engine: BuckshotEngine) -> None:
-            super().__init__(classes="panel")
-            engine.attach(self)
-            self.border_title = " 󰷨 Logs "
-
-        @override
-        def on_engine_update(self, state: BuckshotEngine.BuckshotState):
-            self.message = state.message
-    
-        def watch_message(self, old:str , new: str):
-            if new and new != old:
-                self.query_one("#logs", RichLog).write(new)
-
-    class PlayersInventory(Container, BuckshotEngine.BuckshotObserver):
-        def __init__(self, engine: BuckshotEngine) -> None:
-            super().__init__(classes="panel")
-            engine.attach(self)
-            self.border_title = "  Player's Info "
-
-        def compose(self) -> ComposeResult:
-            return super().compose()
-
-    ENABLE_COMMAND_PALETTE = False
-
+class _View(Screen):
     DEFAULT_CSS = """
-    #content {
-        width: 80;
-        height: 40;
-        border: ascii white;
-        border-title-align: center;
-        border-subtitle-align: right;
-        layout: grid;
-        grid-size: 2 2;
-    }
-
-    #wrapper {
+    _View ScrollableContainer {
         overflow: auto auto;
         align: center middle;
-    }
-
-    .panel {
-        border_top: ascii white;
-        border-title-align: center;
-    }
-
-    ScrollableContainer {
         scrollbar-background: $background;
         scrollbar-background-active: $background;
         scrollbar-background-hover: $background;
@@ -200,53 +34,296 @@ class BuckshotApp(App):
         scrollbar-color-hover: white;
         scrollbar-size: 1 1;
     }
+
+    _View Static {
+        width: 1fr;
+        height: 1;
+    }
+
+    _View .center-align {
+        content-align: center middle;
+    }
+
+    _View .right-align {
+        content-align: right middle;
+    }
     """
 
-    BINDINGS = [
-        Binding(*key) for key in [
-            ('h', "change_view('help')"),
-            ('space', "change_view('board')"),
-            ('q', "exit"),
-            *[(str(i), f"parse_item('{name}')") for i, name in enumerate(
-                ["magnifier", "beer", "handsaw", "cigarette", "handcuff"],
-                start=1
-            )],
-        ]
-    ]
+    PREV_VIEW: str = 'title'
+    NAME: str
 
-    _engine = BuckshotEngine('', '')
+    class ContentWrapper(Container):
+        DEFAULT_CSS = """
+        ContentWrapper {
+            width: 80;
+            height: 40;
+            border: round white;
+            border-title-align: center;
+            border-subtitle-align: right;
+            align: center middle;
+        }
+        """
+
+        def __init__(self, *children: Widget) -> None:
+            super().__init__(*children)
+            self.border_title = f"󰍉 󱄾 {self.app.title} 󱆉 󰹈"
+            self.border_subtitle = f"v{self.app.sub_title}"
 
     def compose(self) -> ComposeResult:
-        elems = (widget(self._engine) for widget in [self.MainScreen, self.Logs, self.PlayersInventory])
-        yield ScrollableContainer(Container(*elems, id="content"), id="wrapper")
+        yield ScrollableContainer(self.ContentWrapper(*self.assign()))
+
+    def key_q(self) -> None:
+        self.app.switch_mode(self.PREV_VIEW)
+
+    @abstractmethod
+    def assign(self) -> ComposeResult:
+        pass
+
+T = TypeVar("T")
+class _Prompt(ModalScreen[T]):
+    def key_q(self):
+        self.dismiss()
+
+# ---Views used by App---
+class TitleView(_View):
+    NAME = 'title'
+    BINDINGS = [('space', "app.switch_mode('board')")]
+
+    def assign(self) -> ComposeResult:
+        yield from (Label(l, classes="center-align") for l in [
+            f"[bold orange]{self.app.title}[/bold orange]",
+            f"[dim]x{'-'*45}x[/dim]",
+            "[dim]Based on Buckshot Roulette by Mike Klubnika[/dim]",
+        ])
+
+    @override 
+    def key_q(self) -> None:
+        self.app.exit()
+
+class BoardView(_View):
+    DEFAULT_CSS = """
+    BoardView ContentWrapper {
+        layout: grid;
+        grid-size: 2 2;
+        grid-rows: 60% 40%;
+    }
+
+    BoardView .sub-panel {
+        width: 1fr;
+        align: center middle;
+        border_top: solid white;
+        border-title-align: center;
+        padding: 1 2 1 2;
+    }
+
+    BoardView .hidden-prompt {
+        background: rgba(0, 0, 0, 0)
+    }
+    """
+
+    # ---Internal Widgets---
+    class Logs(RichLog, BuckshotEngine.BuckshotObserver):
+        DEFAULT_CSS = """
+        Logs {
+            background: $background;
+            padding: 1;
+            column-span: 2;
+        }
+
+        Logs:focus {
+            background: rgba(0, 0, 0, 0);
+        }
+        """
+
+        message: reactive[str] = reactive("")
+
+        def __init__(self, engine: BuckshotEngine) -> None:
+            super().__init__()
+            engine.attach(self)
+
+        @override
+        def on_engine_update(self, state: BuckshotEngine.BuckshotState):
+            self.message = state.message
+    
+        def watch_message(self, old:str , new: str):
+            if new and new != old:
+                self.write(new)
+
+    class Status(Widget, BuckshotEngine.BuckshotObserver):
+        DEFAULT_CSS = """
+        Status Horizontal {
+            height: 1;
+            align: center middle;
+        }
+        """
+
+        chamber: reactive[str] = reactive("?")
+        turn: reactive[str] = reactive("?")
+        items: reactive[str] = reactive("?")
+        stage: reactive[str] = reactive("?")
+
+        def __init__(self, engine: BuckshotEngine) -> None:
+            super().__init__(classes="sub-panel")
+            engine.attach(self)
+            self.border_title = " 󰷨 Board's Status "
+
+        def compose(self) -> ComposeResult:
+            attrs = [
+                ("chamber", "Bullets Left:", self.chamber),
+                ("turn", "Current Turn:", self.turn),
+                ("items", "Items per reload:", self.items),
+                ("stage", "Stage:", self.stage),
+            ]
+            
+            for id, label, value in attrs:
+                with Horizontal():
+                    yield Label(label)
+                    yield Static(value, id=f"status-{id}", classes="right-align")
+
+    class Players(Container, BuckshotEngine.BuckshotObserver):
+        DEFAULT_CSS = """
+        Players {
+            layout: grid;
+            grid-size: 1 2;
+        }
+        """
+
+        def __init__(self, engine: BuckshotEngine) -> None:
+            super().__init__(classes="sub-panel")
+            engine.attach(self)
+            self.border_title = "  Player's Info "
+
+        def compose(self) -> ComposeResult:
+            for p in ["Player 1", "Player 2"]:
+                with Container():
+                    yield Static(f"[bold]{p}[/bold]")
+
+    # ---Player Interactive Prompt---
+    class ActPrompt(_Prompt[list[str]]):
+        DEFAULT_CLASSES = "hidden-prompt"
+
+        class TargetPrompt(_Prompt[bool|None]):
+            DEFAULT_CLASSES = "hidden-prompt"
+            BINDINGS = [
+                ("0", "dismiss(True)"),
+                ("1", "dismiss(False)"),
+            ]
+
+        def __init__(self, caller: BoardView) -> None:
+            super().__init__()
+            self.caller = caller
+            self.engine = caller._engine
+
+        def on_mount(self):
+            available_items = [k for k, v in self.engine._players[self.engine._turn].inventory.items.items() if v > 0]
+
+            self._bindings.bind("0", "parse_item('gun')", "Use Gun")
+            for key, name in enumerate(available_items, start=1):
+                self._bindings.bind(str(key), f"parse_item('{name}')", f"Use {name}")
+
+        def compose(self) -> ComposeResult:
+            yield Footer()
+
+        @work
+        async def action_parse_item(self, item: str):
+            if item not in self.engine._valid_actions:
+                return
+
+            logs = self.caller.query_one(BoardView.Logs)
+    
+            actions = [item]
+            if item == "gun":
+                logs.write(" | ".join(["󱆉", "󱄾", "󰍉", "󱄖", "󰹈"]))
+                target = "self" if await self.app.push_screen_wait(self.TargetPrompt()) else "opponent"
+                actions.append(target)
+
+            self.dismiss(actions)
+
+        @override
+        def key_q(self):
+            self.dismiss([''])
+
+    class ConfirmPrompt(_Prompt[bool]):
+        DEFAULT_CLASSES = "hidden-prompt"
+        BINDINGS = []
+
+    class SetupPrompt(_Prompt[tuple[str, ...]]):
+        def compose(self) -> ComposeResult:
+            yield Label("Enter player's names:")
+            yield Input(compact=True, max_length=5, id="input01")
+            yield Input(compact=True, max_length=5, id="input02")
+
+        @on(Input.Submitted, "#input01")
+        def next(self):
+            self.set_focus(self.query_one("#input02"))
+
+        @on(Input.Submitted, "#input02")
+        def confirm_setup(self):
+            if not self.query_one("#input01", Input).value:
+                self.set_focus(self.query_one("#input01"))
+                return
+
+            self.dismiss((
+                self.query_one("#input01", Input).value,
+                self.query_one("#input02", Input).value
+            ))
+
+    NAME = 'board'
+    BINDINGS = [
+        ("space", "act"),
+    ]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._engine = BuckshotEngine()
+
+    def assign(self) -> ComposeResult:
+        yield from (widget(self._engine) for widget in [self.Logs, self.Status, self.Players])
+
+    @work
+    async def on_mount(self):
+        if not self._engine.ready: # ensure that engine has been created for game to load
+            self._engine.setup(*await self.app.push_screen_wait(self.SetupPrompt()))
+        self._engine.reset(hard=True) # reload new game but keeping player's names
+
+    @work
+    async def action_act(self):
+        self._engine.execute(await self.app.push_screen_wait(self.ActPrompt(self)))
+
+class HelpView(_View):
+    NAME = 'help'
+    def assign(self) -> ComposeResult:
+        yield Static("This is a help screen")
+
+class CreditView(_View):
+    NAME = 'credit'
+    def assign(self) -> ComposeResult:
+        yield Static("This is a credit screen")
+
+# ---Main App---
+class BuckshotApp(App): 
+    ENABLE_COMMAND_PALETTE = False
+    TITLE = "BUCKSHOTxROULETTE"
+    ENGINE: BuckshotEngine
+    MODES = {view.NAME: view for view in [TitleView, BoardView, HelpView, CreditView]}
+    BINDINGS = [
+        Binding("h", "app.switch_mode('help')", priority=True),
+        Binding("c", "app.switch_mode('credit')", priority=True),
+    ]
 
     def on_mount(self):
-        def buckshot_version():
+        def get_version():
             try:
                 return version("buckshot-roulette")
             except PackageNotFoundError:
                 return "Unknown"
 
-        content = self.query_one("#content")
-        content.border_title = "󰍉 󱄾 BUCKSHOTxROULETTE 󱆉 󰹈"
-        content.border_subtitle = f"v{buckshot_version()}"
+        self.sub_title = get_version()
+        self.switch_mode('title')
 
     def on_resize(self):
         #TODO: create a function to calculate the width and height for the app so that the aspect ratio always return 2
+        # if not push a screen that cover everything
         pass
 
-    def action_change_view(self, view: str = 'title'):
-        self.query_one(self.MainScreen).view = view
-
-    def action_exit(self):
-        if self.query_one(self.MainScreen).view == 'title':
-            self.exit() 
-        else:
-            self.action_change_view()
-
-    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        return True if (
-            action in [""], 
-            self.query_one(self.MainScreen).view == 'board'
-        ) else False
 
