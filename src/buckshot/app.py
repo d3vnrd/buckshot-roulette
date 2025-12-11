@@ -6,7 +6,8 @@ from importlib.metadata import PackageNotFoundError, version
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal, ScrollableContainer
+from textual.containers import Container, Horizontal, HorizontalGroup, ScrollableContainer
+from textual.css.query import NoMatches
 from textual.reactive import reactive
 from textual.screen import ModalScreen, Screen
 from textual.widget import Widget
@@ -19,6 +20,7 @@ from textual.widgets import (
 )
 
 from buckshot.engine import BuckshotEngine
+from buckshot.entity import Player
 
 class _View(Screen):
     DEFAULT_CSS = """
@@ -81,6 +83,15 @@ class _View(Screen):
 
 T = TypeVar("T")
 class _Prompt(ModalScreen[T]):
+    DEFAULT_CSS = """
+    _Prompt {
+        background: rgba(0, 0, 0, 0)
+    }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Footer()
+
     def key_q(self):
         self.dismiss()
 
@@ -110,14 +121,10 @@ class BoardView(_View):
 
     BoardView .sub-panel {
         width: 1fr;
-        align: center middle;
+        align: center top;
         border_top: solid white;
         border-title-align: center;
         padding: 1 2 1 2;
-    }
-
-    BoardView .hidden-prompt {
-        background: rgba(0, 0, 0, 0)
     }
     """
 
@@ -152,15 +159,10 @@ class BoardView(_View):
     class Status(Widget, BuckshotEngine.BuckshotObserver):
         DEFAULT_CSS = """
         Status Horizontal {
-            height: 1;
+            height: 2;
             align: center middle;
         }
         """
-
-        chamber: reactive[str] = reactive("?")
-        turn: reactive[str] = reactive("?")
-        items: reactive[str] = reactive("?")
-        stage: reactive[str] = reactive("?")
 
         def __init__(self, engine: BuckshotEngine) -> None:
             super().__init__(classes="sub-panel")
@@ -169,16 +171,28 @@ class BoardView(_View):
 
         def compose(self) -> ComposeResult:
             attrs = [
-                ("chamber", "Bullets Left:", self.chamber),
-                ("turn", "Current Turn:", self.turn),
-                ("items", "Items per reload:", self.items),
-                ("stage", "Stage:", self.stage),
+                ("chamber", "Bullets Left:"),
+                ("turn", "Current Turn:"),
+                ("items-add", "Items Add:"),
+                ("stage", "Stage:"),
             ]
             
-            for id, label, value in attrs:
+            for id, label in attrs:
                 with Horizontal():
                     yield Label(label)
-                    yield Static(value, id=f"status-{id}", classes="right-align")
+                    yield Static("?", id=f"status-{id}", classes="right-align")
+
+        @override
+        def on_engine_update(self, state: BuckshotEngine.BuckshotState):
+            attrs = [
+                ("chamber", "  ".join(["󰲅" * state.shotgun.bullets_left])),
+                ("turn", state.players[state.turn].name),
+                ("items-add", str(state.items_per_reload)),
+                ("stage", state.stage),
+            ]
+
+            for query, value in attrs:
+                self.query_one(f"#status-{query}", Static).update(value)
 
     class Players(Container, BuckshotEngine.BuckshotObserver):
         DEFAULT_CSS = """
@@ -188,25 +202,68 @@ class BoardView(_View):
         }
         """
 
+        class Player(Widget):
+            pname: reactive[str]
+            health: reactive[str]
+            inventory: reactive[str]
+
+            ICONS = {
+                "magnifier": "󰍉",
+                "beer": "󱄖",
+                "cigarette": "󱆉",
+                "handsaw": "󰹈",
+                "handcuff": "󱄾"
+            }
+
+            DEFAULT_CSS = """
+            Player .player-name {
+                width: auto;
+                padding-right: 1;
+            }
+
+            Player HorizontalGroup {
+                padding-bottom: 1;
+            }
+            """
+
+            def __init__(self, index: int, state: Player.PlayerState) -> None:
+                super().__init__(id=f"player{index}")
+                self.update(state)
+
+            def compose(self) -> ComposeResult:
+                with HorizontalGroup():
+                    yield Label(f"{self.pname}:", id=f"{self.id}-pname", classes="player-name")
+                    yield Static(self.health, id=f"{self.id}-health")
+                yield Static("Empty", id=f"{self.id}-inventory")
+
+            def update(self, state: Player.PlayerState) -> None:
+                self.pname = state.name + ":"
+                self.health = " ".join(["󱐋" * state.health])
+                self.inventory = " | ".join(f"{self.ICONS[k]} {v}" for k, v in state.inventory.items())
+
+            def on_mount(self):
+                for attr in ["pname", "health", "inventory"]:
+                    self.watch(self, attr, lambda v: self.query_one(f"#{self.id}-{attr}", Static).update(v))
+
         def __init__(self, engine: BuckshotEngine) -> None:
             super().__init__(classes="sub-panel")
             engine.attach(self)
             self.border_title = "  Player's Info "
 
-        def compose(self) -> ComposeResult:
-            for p in ["Player 1", "Player 2"]:
-                with Container():
-                    yield Static(f"[bold]{p}[/bold]")
+        @override
+        def on_engine_update(self, state: BuckshotEngine.BuckshotState) -> None:
+            for idx, player in enumerate(state.players, start=1):
+                try:
+                    self.query_one(f"#player{idx}", self.Player).update(player)
+                except NoMatches:
+                    self.mount(self.Player(idx, player))
 
     # ---Player Interactive Prompt---
     class ActPrompt(_Prompt[list[str]]):
-        DEFAULT_CLASSES = "hidden-prompt"
-
         class TargetPrompt(_Prompt[bool|None]):
-            DEFAULT_CLASSES = "hidden-prompt"
             BINDINGS = [
-                ("0", "dismiss(True)"),
-                ("1", "dismiss(False)"),
+                ("0", "dismiss(True)", "Shoot yourself"),
+                ("1", "dismiss(False)", "Shoot opponent"),
             ]
 
         def __init__(self, caller: BoardView) -> None:
@@ -220,9 +277,6 @@ class BoardView(_View):
             self._bindings.bind("0", "parse_item('gun')", "Use Gun")
             for key, name in enumerate(available_items, start=1):
                 self._bindings.bind(str(key), f"parse_item('{name}')", f"Use {name}")
-
-        def compose(self) -> ComposeResult:
-            yield Footer()
 
         @work
         async def action_parse_item(self, item: str):
@@ -248,6 +302,8 @@ class BoardView(_View):
         BINDINGS = []
 
     class SetupPrompt(_Prompt[tuple[str, ...]]):
+        #TODO: change setup prompt to normal screen
+
         def compose(self) -> ComposeResult:
             yield Label("Enter player's names:")
             yield Input(compact=True, max_length=5, id="input01")
