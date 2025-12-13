@@ -21,7 +21,7 @@ from textual.widgets import (
 )
 
 from buckshot.engine import BuckshotEngine
-from buckshot.entity import Player
+from buckshot.entity import Dealer, Player
 
 T = TypeVar("T")
 
@@ -92,8 +92,10 @@ class _Prompt(ModalScreen[T]):
     }
     """
 
-    def compose(self) -> ComposeResult:
-        yield Footer()
+    class Write(Message):
+        def __init__(self, mess: str) -> None:
+            self.mess = mess
+            super().__init__()
 
     def key_q(self):
         self.dismiss()
@@ -262,9 +264,6 @@ class BoardView(_View):
                 for attr in ["pname", "health", "inventory"]:
                     self.watch(self, attr, make_watcher(attr))
 
-        class Updated(Message):
-            pass
-
         def __init__(self, engine: BuckshotEngine) -> None:
             super().__init__(classes="sub-panel")
             engine.attach(self)
@@ -286,14 +285,13 @@ class BoardView(_View):
                 except NoMatches:
                     self.mount(self.Player(idx, player))
 
-            self.post_message(self.Updated())
-
     # ---Player Interactive Hidden Prompt---
     class ConfirmPrompt(_Prompt[bool]):
         BINDINGS = [
             ("y", "dismiss(True)"),
             ("n", "dismiss(False)")
         ]
+
         def __init__(self, mess:str = "Are you sure?") -> None:
             super().__init__()
             self.mess = mess
@@ -312,30 +310,22 @@ class BoardView(_View):
                 ("1", "dismiss(False)", "Shoot opponent"),
             ]
 
-        def __init__(self, caller: BoardView) -> None:
+        def __init__(self, player: Player.PlayerState) -> None:
+            self.player: Player.PlayerState = player
             super().__init__()
-            self.caller = caller # pass the main board view as references
 
         def on_mount(self):
-            engine = self.caller._engine
-            available_items = [k for k, v in engine._players[engine._turn].inventory.items.items() if v > 0]
+            available_items = [k for k, v in self.player.inventory.items() if v > 0]
 
             self._bindings.bind("0", "parse_item('gun')", "Use Gun")
             for key, name in enumerate(available_items, start=1):
                 self._bindings.bind(str(key), f"parse_item('{name}')", f"Use {name}")
 
-            self.caller.query_one(BoardView.Logs).write("Ok, what you want to do?")
-
         @work
         async def action_parse_item(self, item: str):
-            if item not in self.caller._engine._valid_actions:
-                return
-
-            logs = self.caller.query_one(BoardView.Logs)
-    
             actions = [item]
             if item == "gun":
-                logs.write("Player picked up the gun, wondering who to shoot?")
+                self.post_message(self.Write("Player picked up the gun, and wondering who to shoot?"))
                 target = "self" if await self.app.push_screen_wait(self.TargetPrompt()) else "opponent"
                 actions.append(target)
 
@@ -381,7 +371,7 @@ class BoardView(_View):
         self._engine.reset(hard=True) # reload new game but keeping player's names
 
     @on(Input.Submitted)
-    def sign(self):
+    def _add_player(self):
         inputer = self.query_one(Input)
 
         if inputer.value != "":
@@ -396,30 +386,15 @@ class BoardView(_View):
         self._engine.setup(*self.players)
         self._engine.reset(hard=True)
 
-    #TODO: setup dynamic bindings that get updated when Player widget update
-    @on(Players.Updated)
-    def update_bindings(self):
-        self._bindings.bind("0", "parse_item('gun')", "Use Gun")
-        available_items = [k for k, v in self._engine._players[self._engine._turn].inventory.items.items() if v > 0]
-        for key, name in enumerate(available_items, start=1):
-            self._bindings.bind(str(key), f"parse_item('{name}')", f"Use {name}")
-
-        self.refresh_bindings()
-
     @work
-    async def action_parse_item(self, item: str):
-        if item not in self._engine._valid_actions:
-            return
+    async def key_space(self):
+        self._engine.execute(await self.app.push_screen_wait(self.ActPrompt(self._engine._players[self._engine._turn].state)))
 
-        logs = self.query_one(BoardView.Logs)
+    def on_act_prompt_write(self, message: ActPrompt.Write) -> None:
+        self.query_one(self.Logs).write(message.mess)
 
-        actions = [item]
-        if item == "gun":
-            logs.write("Player picked up the gun, wondering who to shoot?")
-            # target = "self" if await self.app.push_screen_wait(self.TargetPrompt()) else "opponent"
-            # actions.append(target)
-
-        self._engine.execute(actions)
+    def check_action_space(self):
+        return isinstance(self._engine._players[self._engine._turn], Dealer)
 
 class HelpView(_View):
     NAME = 'help'
@@ -435,7 +410,6 @@ class CreditView(_View):
 class BuckshotApp(App): 
     ENABLE_COMMAND_PALETTE = False
     TITLE = "BUCKSHOTxROULETTE"
-    ENGINE: BuckshotEngine
     MODES = {view.NAME: view for view in [TitleView, BoardView, HelpView, CreditView]}
     BINDINGS = [
         Binding("h", "app.switch_mode('help')", priority=True),
