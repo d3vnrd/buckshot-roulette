@@ -8,7 +8,6 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, HorizontalGroup, ScrollableContainer
 from textual.css.query import NoMatches
-from textual.message import Message
 from textual.reactive import reactive
 from textual.screen import ModalScreen, Screen
 from textual.widget import Widget
@@ -21,7 +20,7 @@ from textual.widgets import (
 )
 
 from buckshot.engine import BuckshotEngine
-from buckshot.entity import Dealer, Player
+from buckshot.entity import Player
 
 T = TypeVar("T")
 
@@ -76,7 +75,6 @@ class _View(Screen[T]):
 
     def compose(self) -> ComposeResult:
         yield ScrollableContainer(self.ContentWrapper(*self.assign()))
-        yield Footer()
 
     def key_q(self) -> None:
         self.app.switch_mode(self.PREV_VIEW)
@@ -91,11 +89,6 @@ class _Prompt(ModalScreen[T]):
         background: rgba(0, 0, 0, 0)
     }
     """
-
-    class Write(Message):
-        def __init__(self, mess: str) -> None:
-            self.mess = mess
-            super().__init__()
 
     def key_q(self):
         self.dismiss()
@@ -118,9 +111,9 @@ class TitleView(_View):
 
 class BoardView(_View):
     # ---Internal Widgets---
-    class Logs(RichLog, BuckshotEngine.BuckshotObserver):
+    class LogsPanel(RichLog, BuckshotEngine.BuckshotObserver):
         DEFAULT_CSS = """
-        Logs {
+        LogsPanel {
             background: $background;
             border: round white;
             margin: 0 1 0 1;
@@ -128,7 +121,7 @@ class BoardView(_View):
             column-span: 2;
         }
 
-        Logs:focus {
+        LogsPanel:focus {
             background: rgba(0, 0, 0, 0);
         }
         """
@@ -147,13 +140,13 @@ class BoardView(_View):
             if new and new != old:
                 self.write(new)
 
-    class Status(Widget, BuckshotEngine.BuckshotObserver):
+    class StatusPanel(Widget, BuckshotEngine.BuckshotObserver):
         DEFAULT_CSS = """
-        Status {
+        StatusPanel {
             border_right: solid white;
         }
 
-        Status HorizontalGroup {
+        StatusPanel HorizontalGroup {
             height: 1;
             margin-bottom: 1;
             align: center middle;
@@ -197,7 +190,7 @@ class BoardView(_View):
             self.items = str(state.items_per_reload)
             self.stage = state.stage
 
-    class Players(Container, BuckshotEngine.BuckshotObserver):
+    class PlayerPanel(Container, BuckshotEngine.BuckshotObserver):
         class Register(Widget):
             DEFAULT_CSS = """
             Register Input {
@@ -216,8 +209,13 @@ class BoardView(_View):
             #TODO: add value checker exclude name like GOD, DEALER, > 8
 
         class Player(Widget):
-            # TODO: move this to inner engine
-            ICONS = {"magnifier": "󰍉", "beer": "󱄖", "cigarette": "󱆉", "handsaw": "󰹈", "handcuff": "󱄾" }
+            ICONS = {
+                "magnifier": "󰍉", 
+                "beer": "󱄖", 
+                "cigarette": "󱆉", 
+                "handsaw": "󰹈", 
+                "handcuff": "󱄾",
+            }
 
             DEFAULT_CSS = """
             Player {
@@ -256,13 +254,11 @@ class BoardView(_View):
                 self.inventory = " | ".join(f"{self.ICONS[k]} {v}" for k, v in state.inventory.items())
 
             def on_mount(self):
-                def make_watcher(attr: str):
-                    def update(value: str):
-                        self.query_one(f"#{self.id}-{attr}", Static).update(value)
-                    return update
+                def w_func(attr: str):
+                    return lambda v: self.query_one(f"#{self.id}-{attr}", Static).update(v)
 
                 for attr in ["pname", "health", "inventory"]:
-                    self.watch(self, attr, make_watcher(attr))
+                    self.watch(self, attr, w_func(attr))
 
         def __init__(self, engine: BuckshotEngine) -> None:
             super().__init__(classes="sub-panel")
@@ -274,66 +270,22 @@ class BoardView(_View):
 
         @override
         def on_engine_update(self, state: BuckshotEngine.BuckshotState) -> None:
-            try:
-                self.query_one(self.Register).remove()
-            except NoMatches:
-                pass
-
             for idx, player in enumerate(state.players, start=1):
                 try:
                     self.query_one(f"#player{idx}", self.Player).update(player)
                 except NoMatches:
                     self.mount(self.Player(idx, player))
 
-    # ---Player Interactive Hidden Prompt---
-    class ConfirmPrompt(_Prompt[bool]):
+    # --Support Interaction Prompt---
+    class TargetPrompt(_Prompt[bool]):
         BINDINGS = [
-            ("y", "dismiss(True)"),
-            ("n", "dismiss(False)")
+            ("space", "dismiss(False)"),
+            ("1", "dismiss(True)")
         ]
-
-        def __init__(self, mess:str = "Are you sure?") -> None:
-            super().__init__()
-            self.mess = mess
-
-        def on_mount(self):
-            self.screen.query_one(BoardView.Logs).write(self.mess + " (y/n):")
 
         @override
         def key_q(self):
             self.dismiss(False)
-
-    class ActPrompt(_Prompt[list[str]]):
-        class TargetPrompt(_Prompt[bool|None]):
-            BINDINGS = [
-                ("0", "dismiss(True)", "Shoot yourself"),
-                ("1", "dismiss(False)", "Shoot opponent"),
-            ]
-
-        def __init__(self, player: Player.PlayerState) -> None:
-            self.player: Player.PlayerState = player
-            super().__init__()
-
-        def on_mount(self):
-            available_items = [k for k, v in self.player.inventory.items() if v > 0]
-
-            self._bindings.bind("0", "parse_item('gun')", "Use Gun")
-            for key, name in enumerate(available_items, start=1):
-                self._bindings.bind(str(key), f"parse_item('{name}')", f"Use {name}")
-
-        @work
-        async def action_parse_item(self, item: str):
-            actions = [item]
-            if item == "gun":
-                self.post_message(self.Write("Player picked up the gun, and wondering who to shoot?"))
-                target = "self" if await self.app.push_screen_wait(self.TargetPrompt()) else "opponent"
-                actions.append(target)
-
-            self.dismiss(actions)
-
-        @override
-        def key_q(self):
-            self.dismiss([''])
 
     # ---BoardView's Main Logic---
     NAME = 'board'
@@ -353,22 +305,33 @@ class BoardView(_View):
     }
     """
 
+    BINDINGS = [
+        ("space", "parse_item('gun')"),
+        *[(str(i), f"parse_item('{name}')") for i, name in enumerate(
+            ["magnifier", "beer", "handsaw", "cigarette", "handcuff"],
+            start=1
+        )]
+    ]
+
     def __init__(self) -> None:
         super().__init__()
-        self._engine = BuckshotEngine() # mount ui to underlying engine
+        self._engine = BuckshotEngine() # mount UI to underlying engine
         self.players: list[str] = []
 
     def assign(self) -> ComposeResult:
-        yield from (widget(self._engine) for widget in [self.Logs, self.Status, self.Players])
+        yield from (widget(self._engine) for widget in [self.LogsPanel, self.StatusPanel, self.PlayerPanel])
+        yield Footer()
 
     def on_mount(self):
         if not self._engine.ready: # ensure that engine has been created for game to load
-            #TODO: update the contract
-            self.query_one(self.Logs).write("Here is the contract, sign it by entering your name!")
+            self.query_one(self.LogsPanel).write("Here is the contract, sign it by entering your name!") #TODO: update the contract
             self.query_one(Input).focus()
             return
 
         self._engine.reset(hard=True) # reload new game but keeping player's names
+
+    def write(self, mess: str) -> None:
+        self.query_one(self.LogsPanel).write(mess)
 
     @on(Input.Submitted)
     def _add_player(self):
@@ -383,18 +346,28 @@ class BoardView(_View):
         if len(self.players) == 1:
             self.players.append("Dealer")
 
+        self.query_one(self.PlayerPanel.Register).remove() # replace Register with actual Player's information
         self._engine.setup(*self.players)
         self._engine.reset(hard=True)
 
     @work
-    async def key_space(self):
-        self._engine.execute(await self.app.push_screen_wait(self.ActPrompt(self._engine._players[self._engine._turn].state)))
+    async def action_parse_item(self, item: str):
+        actions: list[str] = [item]
+        if item == "gun":
+            self.write("You picked up the gun, wonder who to shoot? (space: self | 1: opponent)")
+            target = "opponent" if await self.app.push_screen_wait(self.TargetPrompt()) else "self"
+            actions.append(target)
 
-    def on_act_prompt_write(self, message: ActPrompt.Write) -> None:
-        self.query_one(self.Logs).write(message.mess)
+        self._engine.execute(actions)
 
-    def check_action_space(self):
-        return isinstance(self._engine._players[self._engine._turn], Dealer)
+    @override
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        for key in range(1, 6):
+            if action == key:
+                return self._engine._players[self._engine._turn].inventory.has_item(parameters[0])
+
+        return True
+
 
 class HelpView(_View):
     NAME = 'help'
