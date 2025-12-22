@@ -3,7 +3,7 @@ from .entity import *
 from .action import *
 
 class BuckshotEngine:
-    _valid_actions: dict[str, type[Action]] = {
+    _valid_item_actions: dict[str, type[Action]] = {
         "magnifier": UseMagnifierAction,
         "beer": UseBeerAction,
         "handsaw": UseHandsawAction,
@@ -106,15 +106,15 @@ class BuckshotEngine:
         self._notify()
 
     def execute(self, args: list[str]):
-        cmd = args[0]
-        if cmd not in self._valid_actions:
+        item = args[0]
+        if item not in self._valid_item_actions:
             return
 
         actor, target = self._get_roles()
         if len(args) > 1 and args[1] == "self":
             target = actor
 
-        result = self._valid_actions[cmd](actor, target).execute()
+        result = self._valid_item_actions[item](actor, target).execute()
         if result.end_turn:
             self._next_player()
 

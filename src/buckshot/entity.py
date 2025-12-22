@@ -62,15 +62,14 @@ class Shotgun:
         self._damage *= 2
 
 class Inventory:
-    _item_caps: dict[str, int] = { # mutable objects like this will persist across class calls
+    MAX_CAPACITY: int = 8
+    VALID_ITEMS: dict[str, int] = {
         "magnifier": 1,
         "beer": 2,
         "handsaw": 3,
         "cigarette": 1,
         "handcuff": 1
     }
-
-    _capacity: int = 8 # this is re-created therefore any changes to this value on other class does not affect this value
 
     def __init__(self) -> None:
         self.items: dict[str, int] = {
@@ -84,7 +83,7 @@ class Inventory:
     @property
     def is_full(self) -> bool:
         """Return True if total number of items has reached capacity."""
-        return sum(self.items.values()) >= self._capacity
+        return sum(self.items.values()) >= self.MAX_CAPACITY
 
     @property
     def total(self) -> int:
@@ -97,7 +96,7 @@ class Inventory:
         
         while items_added < n_items and not self.is_full:
             available = [
-                item for item, cap in self._item_caps.items()
+                item for item, cap in self.VALID_ITEMS.items()
                 if self.items.get(item, 0) < cap
             ]
             
