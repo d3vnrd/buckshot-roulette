@@ -89,12 +89,13 @@ class BuckshotEngine:
     def ready(self):
         return True if hasattr(self, "_players") else False
 
-    def setup(self, p1_name: str, p2_name: str = ""):
+    def sign(self, name: str):
         self._players = (
-            Player(p1_name, self._health_cap),
-            Player(p2_name, self._health_cap)
-            if p2_name else Dealer(self._health_cap)
+            Player(name, self._health_cap),
+            Dealer(self._health_cap)
         )
+        
+        self._notify()
 
     def reset(self, hard: bool = False):
         self._shotgun.reload()
@@ -105,7 +106,7 @@ class BuckshotEngine:
 
         self._notify()
 
-    def execute(self, args: list[str]):
+    def execute(self, *args: str):
         item = args[0]
         if item not in self._valid_item_actions:
             return

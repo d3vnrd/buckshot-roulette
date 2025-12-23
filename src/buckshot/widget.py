@@ -3,7 +3,7 @@ from typing import override
 
 from textual import on
 from textual.app import ComposeResult
-from textual.containers import HorizontalGroup
+from textual.containers import Container, HorizontalGroup
 from textual.message import Message
 from textual.reactive import reactive
 from textual.widget import Widget
@@ -11,11 +11,11 @@ from textual.widgets import (
     Input,
     Label,
     RichLog,
-    Static
+    Static,
 )
 from buckshot.engine import BuckshotEngine
 
-class GameContainer(Widget):
+class GameContainer(Container):
     DEFAULT_CSS = """
     GameContainer {
         width: 80;
@@ -26,35 +26,29 @@ class GameContainer(Widget):
         align: center middle;
     }
     """
-    def __init__(self, *children: Widget) -> None:
+
+    def __init__(self) -> None:
+        super().__init__()
         self.border_title = f"󰍉 󱄾 {self.app.title} 󱆉 󰹈"
         self.border_subtitle = f"v{self.app.sub_title}"
-        super().__init__(*children)
 
-class GameStatus(Widget, BuckshotEngine.BuckshotObserver):
+class BoardView(Container, BuckshotEngine.BuckshotObserver):
     DEFAULT_CSS = """
-    GameStatus {
+    BoardView {
         width: 1fr;
         height: 1fr;
         border: round white;
+        border-subtitle-align: center;
         margin: 0 1 0 1;
         layout: grid;
-        grid-size: 2 2;
-        grid-rows: 2fr auto;
-    }
-
-    GameStatus .sub-panel {
-        width: 1fr;
-        align: center top;
-        border-top: solid white;
-        border-title-align: center;
-        padding: 1 2 0 2;
+        grid-size: 2;
+        grid-rows: 1fr auto;
     }
     """
 
     class Logs(RichLog):
         DEFAULT_CSS = """
-        Logs{
+        Logs {
             background: $background;
             margin: 0 1 0 1;
             column-span: 2;
@@ -65,13 +59,20 @@ class GameStatus(Widget, BuckshotEngine.BuckshotObserver):
         }
         """
 
-        def update(self):
-            pass
+        def update(self, state: BuckshotEngine.BuckshotState):
+            self.write(state.message)
 
     class StatsReport(Widget):
         BORDER_TITLE = " 󰷨 Board's Status "
-        DEFAULT_CLASSES = "sub-panel"
         DEFAULT_CSS = """
+        StatsReport {
+            width: 1fr;
+            align: center top;
+            border-top: solid white;
+            border-title-align: center;
+            padding: 1 2 0 2;
+        }
+
         StatsReport HorizontalGroup {
             height: 1;
             margin-bottom: 1;
@@ -118,17 +119,25 @@ class GameStatus(Widget, BuckshotEngine.BuckshotObserver):
         }
 
         BORDER_TITLE = "  Player's Info "
-        DEFAULT_CLASSES = "sub-panel"
+        DEFAULT_CSS = """
+        PlayerInfo {
+            width: 1fr;
+            align: center top;
+            border-top: solid white;
+            border-title-align: center;
+            padding: 1 2 0 2;
+        }
+        """
 
         def compose(self) -> ComposeResult:
-            yield Static("[dim]Nothing to show yet![/dim]", id="placeholder")
+            yield Static("[dim]Nothing to show yet![/dim]")
 
-        def update(self):
-            pass
+        def update(self, state: BuckshotEngine.BuckshotState):
+            self.query_one(Static).update("Something to show!")
 
     def __init__(self, engine: BuckshotEngine) -> None:
-        self.engine = engine
         super().__init__()
+        self.border_subtitle = ">_"
         engine.attach(self)
 
     def compose(self) -> ComposeResult:
@@ -137,17 +146,16 @@ class GameStatus(Widget, BuckshotEngine.BuckshotObserver):
         yield self.PlayerInfo()
 
     def on_mount(self):
-        for w in self.query("StatsReport, PlayerInfo"):
-            w.display = False
+        pass
 
     @override
     def on_engine_update(self, state: BuckshotEngine.BuckshotState) -> None:
-        for w in self.query("Logs, StatsReport, PlayerInfo"):
-            w.update()
+        pass
 
-class CmdsInput(Widget, BuckshotEngine.BuckshotObserver):
+# --- Custom widgets ---
+class PlayerInput(Widget):
     DEFAULT_CSS = """
-    CmdsInput {
+    PlayerInput {
         layout: horizontal;
         width: 1fr;
         height: 3;
@@ -155,33 +163,55 @@ class CmdsInput(Widget, BuckshotEngine.BuckshotObserver):
         padding: 0 2 0 2;
     }
 
-    CmdsInput Input {
+    PlayerInput Static {
+        width: auto;
+        height: 1;
+    }
+
+    PlayerInput Input {
+        width: 1fr;
+        height: 1;
         background: $background;
         margin-left: 1;
     }
 
-    CmdsInput Input:focus {
+    PlayerInput Input:focus {
         background: rgba(0, 0, 0, 0);
     }
     """
 
-    class Submitted(Message):
-        def __init__(self, value: str, inputer: Input) -> None:
-            self.value = value
-            self.inputer = inputer
-            super().__init__()
+    VALID_CMDS: dict[str, int] = {
+        "clear": 0,
+        "exit": 0,
+        "help": 0,
+        "sign": 1,
+        "shoot": 1,
+        "use": 1,
+    }
 
-    def __init__(self, engine: BuckshotEngine) -> None:
-        super().__init__()
-        engine.attach(self)
+    class Submitted(Message):
+        def __init__(self, action: str = "", args: list[str] = []) -> None:
+            self.action = action
+            self.args = args
+            super().__init__()
 
     def compose(self) -> ComposeResult:
         yield Static(">")
         yield Input(placeholder="Enter commands ...", compact=True)
 
-    def focus(self, scroll_visible: bool = True) -> Widget:
-        return self.query_one(Input).focus()
-
     @on(Input.Submitted)
-    def _send(self, event: Input.Submitted):
-        self.post_message(self.Submitted(event.value, self.query_one(Input)))
+    def parser(self, event: Input.Submitted):
+        self.query_one(Input).value = ""
+
+        cmds = event.value.lower().strip().split()
+        if not cmds: 
+            return
+
+        # initially check for command validity by checking input verb and number of arguments
+        expected = self.VALID_CMDS.get(cmds[0])
+        if expected is None or len(cmds[1:]) != expected:
+            self.post_message(self.Submitted())
+            return
+
+        self.post_message(self.Submitted(action=cmds[0], args=cmds[1:]))
+

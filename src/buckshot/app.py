@@ -1,115 +1,19 @@
 from __future__ import annotations
-from abc import abstractmethod
-from typing import TypeVar
 from importlib.metadata import PackageNotFoundError, version
 
 from textual import on
 from textual.app import App, ComposeResult
-from textual.containers import Container, ScrollableContainer
-from textual.screen import Screen
-from textual.widget import Widget
+from textual.containers import ScrollableContainer
 
 from buckshot.engine import BuckshotEngine
 from buckshot.widget import *
-
-T = TypeVar("T")
-
-class _View(Screen[T]):
-    DEFAULT_CSS = """
-    _View ScrollableContainer {
-        overflow: auto auto;
-        align: center middle;
-        scrollbar-background: $background;
-        scrollbar-background-active: $background;
-        scrollbar-background-hover: $background;
-        scrollbar-corner-color: $background;
-        scrollbar-color: $background;
-        scrollbar-color-active: white;
-        scrollbar-color-hover: white;
-        scrollbar-size: 1 1;
-    }
-
-    _View Static {
-        width: 1fr;
-        height: 1;
-    }
-
-    _View .center-align {
-        content-align: center middle;
-    }
-
-    _View .right-align {
-        content-align: right middle;
-    }
-    """
-
-    NAME: str
-
-    class ContentWrapper(Container):
-        DEFAULT_CSS = """
-        ContentWrapper {
-            width: 80;
-            height: 40;
-            border: round white;
-            border-title-align: center;
-            border-subtitle-align: right;
-            align: center middle;
-        }
-        """
-
-        def __init__(self, *children: Widget) -> None:
-            super().__init__(*children)
-            self.border_title = f"󰍉 󱄾 {self.app.title} 󱆉 󰹈"
-            self.border_subtitle = f"v{self.app.sub_title}"
-
-    def compose(self) -> ComposeResult:
-        with ScrollableContainer():
-            with self.ContentWrapper():
-                yield from self.assign()
-
-    @abstractmethod
-    def assign(self) -> ComposeResult:
-        pass
-
-class BoardView(_View):
-    NAME = 'board'
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._engine = BuckshotEngine() # mount UI to underlying engine
-        self.players: list[str] = []
-
-    def assign(self) -> ComposeResult:
-        yield GameStatus(self._engine)
-        yield CmdsInput(self._engine)
-
-    def on_mount(self):
-        if not self._engine.ready: # ensure that engine has been created for game to load
-            self.write("Here is the contract, sign it by typing 'sign' + <your-name>!") #TODO: update the contract
-            return
-
-        self._engine.reset(hard=True) # reload new game but keeping player's names
-
-    def write(self, mess: str) -> None:
-        self.query_one(RichLog).write(mess)
-
-    def clear(self):
-        self.query_one(RichLog).clear()
-
-    def key_enter(self) -> None:
-        self.query_one(CmdsInput).focus()
-
-    def key_escape(self) -> None:
-        self.set_focus(None)
-
-    @on(CmdsInput.Submitted)
-    def _cmds_handler(self, event: CmdsInput.Submitted):
-        event.inputer.value = ""
 
 # ---Main App---
 class BuckshotApp(App): 
     ENABLE_COMMAND_PALETTE = False
     TITLE = "BUCKSHOTxROULETTE"
+    ENGINE: BuckshotEngine
+    AUTO_FOCUS = "PlayerInput Input"
 
     DEFAULT_CSS = """
     ScrollableContainer {
@@ -131,9 +35,10 @@ class BuckshotApp(App):
     """
 
     def __init__(self):
-        self.engine = BuckshotEngine()
-        self.players: list[str] = []
         super().__init__()
+        self.sub_title = self.version
+        self.ENGINE = BuckshotEngine()
+        self.players: list[str] = []
 
     @property
     def version(self):
@@ -143,7 +48,40 @@ class BuckshotApp(App):
             return "Unknown"
 
     def compose(self) -> ComposeResult:
-        return super().compose()
+        with ScrollableContainer():
+            with GameContainer():
+                yield BoardView(self.ENGINE)
+                yield PlayerInput()
+
+    def write(self, mess: str, type: str = ""):
+        #TODO: add output type (err, info, warn, etc.)
+        self.query_one(BoardView.Logs).write(mess)
+
+    def clear(self):
+        self.query_one(BoardView.Logs).clear()
 
     def on_mount(self):
-        pass
+        if not self.ENGINE.ready:
+            self.write("This is a contract, sign it!")
+            return
+
+        self.ENGINE.reset(hard=True)
+
+    def key_enter(self):
+        self.query_one("PlayerInput Input").focus()
+
+    @on(PlayerInput.Submitted)
+    def execute(self, event: PlayerInput.Submitted) -> None:
+        match event.action:
+            case "sign":
+                self.ENGINE.sign(event.args[0])
+            case "clear":
+                self.clear()
+            case "exit":
+                self.exit()
+            case "use":
+                self.ENGINE.execute(*event.args)
+            case "shoot":
+                self.write("Player shoot Dealer!")
+            case _:
+                self.write("Error: Invalid command. Try <help> for a list of available commands.")
