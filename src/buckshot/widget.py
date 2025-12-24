@@ -164,7 +164,7 @@ class BoardView(Container, BuckshotEngine.BuckshotObserver):
 
     @override
     def on_engine_update(self, state: BuckshotEngine.BuckshotState) -> None:
-        pass
+        self.query("Logs, StatsReport, PlayerInfo").update(state)  # pyright: ignore[reportAttributeAccessIssue]
 
 # --- Custom widgets ---
 class PlayerInput(Widget):
@@ -203,10 +203,7 @@ class PlayerInput(Widget):
 
     def compose(self) -> ComposeResult:
         yield Static(">")
-        yield Input(
-            placeholder="Enter commands ...", 
-            compact=True,
-        )
+        yield Input(placeholder="Enter commands ...", compact=True)
 
     @on(Input.Submitted)
     def parse(self, event: Input.Submitted) -> None:

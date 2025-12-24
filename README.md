@@ -8,6 +8,7 @@
     - [x] Setup a simple user interface with textual for testing
     - [ ] 3 Game mode PvP, PvE (Game-Agent), PvE (AI-Agent)
     - [x] Create a middle class follow Observer design patterns to bridge between the Board (game mediator) and Textual (game interface)
+    - [ ] Commands execution & Widgets update
 
 - Notes:
     - Currently focus on Single Player vs Game Agent (Dealer) so `sign` function should only allow one Player's name at a time
