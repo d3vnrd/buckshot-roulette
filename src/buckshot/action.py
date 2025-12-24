@@ -1,9 +1,17 @@
 from __future__ import annotations
-from typing import override
+from typing import Callable, override
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
 from buckshot.entity import Player
+
+@dataclass
+class Command:
+    handler: Callable
+    turn_req: bool = False
+    n_args: int = 0
+    once: bool = False
+    description: str = ""
 
 class Action(ABC):
     @dataclass

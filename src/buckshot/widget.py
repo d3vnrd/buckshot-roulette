@@ -58,6 +58,8 @@ class BoardView(Container, BuckshotEngine.BuckshotObserver):
             background: rgba(0, 0, 0, 0);
         }
         """
+        def __init__(self) -> None:
+            super().__init__(wrap=True, markup=True)
 
         def update(self, state: BuckshotEngine.BuckshotState):
             self.write(state.message)
@@ -145,6 +147,18 @@ class BoardView(Container, BuckshotEngine.BuckshotObserver):
         yield self.StatsReport()
         yield self.PlayerInfo()
 
+    def write(self, mess: str, type: str = ""):
+        log = self.query_one(self.Logs)
+
+        match type:
+            case "error":
+                log.write("[bold magenta]" + mess)
+            case _:
+                log.write(mess)
+
+    def clear(self):
+        self.query_one(self.Logs).clear()
+
     def on_mount(self):
         pass
 
@@ -180,38 +194,25 @@ class PlayerInput(Widget):
     }
     """
 
-    VALID_CMDS: dict[str, int] = {
-        "clear": 0,
-        "exit": 0,
-        "help": 0,
-        "sign": 1,
-        "shoot": 1,
-        "use": 1,
-    }
-
     class Submitted(Message):
-        def __init__(self, action: str = "", args: list[str] = []) -> None:
+        def __init__(self, input: Input,  action: str, args: list[str]) -> None:
+            self.input = input
             self.action = action
             self.args = args
             super().__init__()
 
     def compose(self) -> ComposeResult:
         yield Static(">")
-        yield Input(placeholder="Enter commands ...", compact=True)
+        yield Input(
+            placeholder="Enter commands ...", 
+            compact=True,
+        )
 
     @on(Input.Submitted)
-    def parser(self, event: Input.Submitted):
-        self.query_one(Input).value = ""
-
-        cmds = event.value.lower().strip().split()
-        if not cmds: 
+    def parse(self, event: Input.Submitted) -> None:
+        if not event.value.strip():
             return
 
-        # initially check for command validity by checking input verb and number of arguments
-        expected = self.VALID_CMDS.get(cmds[0])
-        if expected is None or len(cmds[1:]) != expected:
-            self.post_message(self.Submitted())
-            return
-
-        self.post_message(self.Submitted(action=cmds[0], args=cmds[1:]))
-
+        cmd = event.value.lower().strip().split()
+        action, args = cmd[0], cmd[1:]
+        self.post_message(self.Submitted(event.input, action, args))

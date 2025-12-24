@@ -18,7 +18,7 @@ class BuckshotEngine:
     _items_per_reload: int = 2 # I: 2, II: 4, III: 4
 
     _observers: list[BuckshotObserver]
-    _players : tuple[Player, ...]
+    PLAYERS : tuple[Player, ...]
     _shotgun: Shotgun
 
     @dataclass(frozen=True)
@@ -55,7 +55,7 @@ class BuckshotEngine:
                     stage = {1: "I", 2: "II", 3: "III"}.get(self._stage, "?"),
                     turn = self._turn,
                     items_per_reload=self._items_per_reload,
-                    players = tuple(p.state for p in self._players),
+                    players = tuple(p.state for p in self.PLAYERS),
                     shotgun = self._shotgun.state,
                     winner = self._get_winner()
                 )
@@ -64,13 +64,13 @@ class BuckshotEngine:
     """Business Logic Goes Here"""
     def _get_roles(self):
         return (
-            self._players[self._turn],
-            self._players[1 - self._turn]
+            self.PLAYERS[self._turn],
+            self.PLAYERS[1 - self._turn]
         )
 
     def _get_winner(self):
         return next((
-            p for p in self._players 
+            p for p in self.PLAYERS 
             if p.health > 0
         ), None)
 
@@ -87,19 +87,17 @@ class BuckshotEngine:
 
     @property
     def ready(self):
-        return True if hasattr(self, "_players") else False
+        return True if hasattr(self, "PLAYERS") else False
 
     def sign(self, name: str):
-        self._players = (
+        self.PLAYERS = (
             Player(name, self._health_cap),
             Dealer(self._health_cap)
         )
-        
-        self._notify()
 
     def reset(self, hard: bool = False):
         self._shotgun.reload()
-        for player in self._players:
+        for player in self.PLAYERS:
             if hard:
                 player.reset(self._health_cap)
             player.inventory.add_items(self._items_per_reload)

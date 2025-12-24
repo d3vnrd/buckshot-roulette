@@ -7,5 +7,11 @@
     - [x] Design a communication services between each object
     - [x] Setup a simple user interface with textual for testing
     - [ ] 3 Game mode PvP, PvE (Game-Agent), PvE (AI-Agent)
-    - [ ] Create a middle class follow Observer design patterns to bridge
-    between the Board (game mediator) and Textual (game interface)
+    - [x] Create a middle class follow Observer design patterns to bridge between the Board (game mediator) and Textual (game interface)
+
+- Notes:
+    - Currently focus on Single Player vs Game Agent (Dealer) so `sign` function should only allow one Player's name at a time
+    - To use items, enter the command `use` + `<item-name>`. Current items does not require user to specify target, but this is likely to change in the future when more items or multiplayer game mode is added.
+    - Other utilities functions include: `clear`, `exit`, `reset` & `help`.
+    - When a command is entered, it will be first validated by `CmdsValidator` for command verb, and number of allowed arguments. If passed, the command will be parsed using tokenized parser, and send over to app to execute. 
+
