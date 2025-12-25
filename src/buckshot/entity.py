@@ -2,13 +2,6 @@ from dataclasses import dataclass
 from collections import deque
 import random as rand
 
-@dataclass
-class Stage:
-    health_cap: int = 3 # I: 3, II: 4, III: 5
-    items_per_reload: int = 1 # I: 2, II: 4, III: 4
-    index: int = 1
-    turn: int = 0
-
 class Shotgun:
     @dataclass
     class ShotgunState:
@@ -18,33 +11,33 @@ class Shotgun:
         blanks: int
 
     def __init__(self):
-        self._damage: int = 1
-        self._chamber: deque[bool] = deque()
+        self.damage: int = 1
+        self.chamber: deque[bool] = deque()
 
     @property
     def state(self) -> ShotgunState:
         return self.ShotgunState(
-            damage=self._damage,
-            bullets_left=len(self._chamber),
-            lives=self._chamber.count(True),
-            blanks=self._chamber.count(False),
+            damage=self.damage,
+            bullets_left=len(self.chamber),
+            lives=self.chamber.count(True),
+            blanks=self.chamber.count(False),
         )
 
     @property
     def is_empty(self) -> bool:
-        return len(self._chamber) <=0
+        return len(self.chamber) <=0
 
     def peek(self) -> bool|None:
         """See the next shell in the chamber"""
         if self.is_empty:
             return None
-        return self._chamber[0]
+        return self.chamber[0]
 
     def eject(self) -> bool|None:
         """Eject current shell in the chamber"""
         if self.is_empty:
             return None
-        return self._chamber.pop()
+        return self.chamber.pop()
 
     def reload(self):
         """Reload new bullets"""
@@ -52,14 +45,14 @@ class Shotgun:
         lives = rand.randint(1, capacity // 2)
         blanks = capacity - lives
 
-        self._chamber.clear() # clear chamber before reload
+        self.chamber.clear() # clear chamber before reload
         for bullet in [True] * lives + [False] * blanks:
-            self._chamber.append(bullet)
-        rand.shuffle(self._chamber)
+            self.chamber.append(bullet)
+        rand.shuffle(self.chamber)
 
     def cutoff(self):
         """Double damage dealt"""
-        self._damage *= 2
+        self.damage *= 2
 
 class Inventory:
     MAX_CAPACITY: int = 8

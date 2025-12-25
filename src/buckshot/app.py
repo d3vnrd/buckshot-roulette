@@ -30,10 +30,6 @@ class BuckshotApp(App):
         scrollbar-color-hover: white;
         scrollbar-size: 1 1;
     }
-
-    .right-align {
-        content-align: right middle;
-    }
     """
 
     def __init__(self):
@@ -49,30 +45,23 @@ class BuckshotApp(App):
             return "Unknown"
 
     @property
-    def view(self):
-        return self.query_one(BoardView)
-
-    @property
     def commands(self) -> dict[str, Command]:
         return {
             "clear": Command(
-                handler=self.view.clear,
-                turn_req=True,
+                handler=self.query_one(Logs).clear,
                 description="Clear game logs"
             ),
             "exit": Command(
                 handler=self.app.exit,
-                turn_req=False,
                 description="Exit the game"
             ),
             "help": Command(
-                handler=self.action_show_help,
-                turn_req=False,
+                handler=self.help,
                 description="Show available commands"
             ),
             "reset": Command(
                 handler=lambda: self.ENGINE.reset(hard=True),
-                turn_req=False,
+                turn_req=True,
                 description="Reset the current game"
             ),
             "use": Command(
@@ -89,26 +78,29 @@ class BuckshotApp(App):
             )
         }
 
+    @property
+    def is_player_turn(self) -> bool:
+        return self.ENGINE.ready and self.ENGINE.TURN == 0
+
+    @property
+    def logger(self) -> Logs:
+        return self.query_one(Logs)
+
+
     def compose(self) -> ComposeResult:
         with ScrollableContainer():
             with GameContainer():
-                yield BoardView(self.ENGINE)
-                yield PlayerInput()
+                with BoardView():
+                    yield from (w(self.ENGINE) for w in [
+                        Logs, StatsReport, PlayerInfo
+                    ])
+                yield PlayerInput(SuggestFromList([]))
 
-    def action_show_help(self) -> None:
+    def help(self) -> None:
         pass
-
-    def action_show_contract(self) -> None:
-        pass
-
-    def action_is_player_turn(self) -> bool:
-        return self.ENGINE.ready and self.ENGINE._turn == 0
 
     def key_enter(self):
         self.query_one("PlayerInput Input").focus()
-
-    def on_mount(self):
-        self.query_one("PlayerInput Input", Input).suggester = SuggestFromList(self.commands)
 
     @on(PlayerInput.Submitted)
     def execute(self, event: PlayerInput.Submitted) -> None:
@@ -121,16 +113,17 @@ class BuckshotApp(App):
         cmd = self.commands.get(event.action)
 
         if cmd is None:
+            self.logger.write(f"Unknown {event.action}! Try <help> instead.", type="error")
             return
 
-        if cmd.turn_req and not self.action_is_player_turn():
-            return
+        #TODO: add other executed conditions for each commands
 
         if cmd.once and self.ENGINE.ready:
             return
 
         if event.args:
             if len(event.args) != cmd.n_args:
+                self.logger.write("Invalid required arguments! Try <help> instead.", type="error")
                 return
             else:
                 cmd.handler(*event.args)

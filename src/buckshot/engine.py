@@ -3,30 +3,12 @@ from .entity import *
 from .action import *
 
 class BuckshotEngine:
-    _valid_item_actions: dict[str, type[Action]] = {
-        "magnifier": UseMagnifierAction,
-        "beer": UseBeerAction,
-        "handsaw": UseHandsawAction,
-        "cigarette": UseCigaretteAction,
-        "handcuff": UseHandcuffAction,
-        "gun": UseGunAction
-    }
-
-    _stage: int = 1
-    _turn: int = 0
-    _health_cap: int = 3 # I: 3, II: 4, III: 5
-    _items_per_reload: int = 2 # I: 2, II: 4, III: 4
-
-    _observers: list[BuckshotObserver]
-    PLAYERS : tuple[Player, ...]
-    _shotgun: Shotgun
-
     @dataclass(frozen=True)
     class BuckshotState:
-        message: str
+        response: str
         stage: str
         turn: int
-        items_per_reload: int
+        n_items: int
         players: tuple[Player.PlayerState, ...]
         shotgun: Shotgun.ShotgunState
         winner: Player|None
@@ -39,35 +21,53 @@ class BuckshotEngine:
         ) -> None:
             pass
 
+    _observers: list[BuckshotObserver]
+    _actions: dict[str, type[Action]] = {
+        "magnifier": UseMagnifierAction,
+        "beer": UseBeerAction,
+        "handsaw": UseHandsawAction,
+        "cigarette": UseCigaretteAction,
+        "handcuff": UseHandcuffAction,
+        "gun": UseGunAction
+    }
+
+    STAGE: int = 1
+    TURN: int = 0
+    MAX_HEALTH: int = 3 # I: 3, II: 4, III: 5
+    N_ITEMS: int = 2 # I: 2, II: 4, III: 4
+
+    PLAYERS : tuple[Player, ...]
+    ACTOR: Player
+    TARGET: Player
+    SHOTGUN: Shotgun
+
     def __init__(self) -> None:
         self._observers = []
-        self._shotgun = Shotgun()
+        self.SHOTGUN = Shotgun()
+
+    @property
+    def ready(self):
+        return True if hasattr(self, "PLAYERS") else False
 
     """Observer + Mediator = Transmitter"""
     def attach(self, observer: BuckshotObserver) -> None:
         self._observers.append(observer)
 
-    def _notify(self, message: str = "") -> None:
+    def _notify(self, response: str = "") -> None:
         for observer in self._observers:
             observer.on_engine_update(
                 self.BuckshotState(
-                    message = message,
-                    stage = {1: "I", 2: "II", 3: "III"}.get(self._stage, "?"),
-                    turn = self._turn,
-                    items_per_reload=self._items_per_reload,
+                    response = response,
+                    stage = {1: "I", 2: "II", 3: "III"}.get(self.STAGE, "?"),
+                    turn = self.TURN,
+                    n_items=self.N_ITEMS,
                     players = tuple(p.state for p in self.PLAYERS),
-                    shotgun = self._shotgun.state,
+                    shotgun = self.SHOTGUN.state,
                     winner = self._get_winner()
                 )
             )
 
     """Business Logic Goes Here"""
-    def _get_roles(self):
-        return (
-            self.PLAYERS[self._turn],
-            self.PLAYERS[1 - self._turn]
-        )
-
     def _get_winner(self):
         return next((
             p for p in self.PLAYERS 
@@ -75,46 +75,37 @@ class BuckshotEngine:
         ), None)
 
     def _next_player(self):
-        _, target = self._get_roles()
-        if target.turn:
-            self._turn = 1 - self._turn
-        target.turn = True
+        pass
 
     def _next_stage(self):
-        self._health_cap += 1 if self._health_cap <= 5 else 0
-        self._items_per_reload = 4
-        self._stage += 1
-
-    @property
-    def ready(self):
-        return True if hasattr(self, "PLAYERS") else False
+        self.MAX_HEALTH += 1 if self.MAX_HEALTH <= 5 else 0
+        self.N_ITEMS += 2 if self.N_ITEMS <= 4 else 0
+        self.STAGE += 1
 
     def sign(self, name: str):
         self.PLAYERS = (
-            Player(name, self._health_cap),
-            Dealer(self._health_cap)
+            Player(name, self.MAX_HEALTH),
+            Dealer(self.MAX_HEALTH)
         )
 
     def reset(self, hard: bool = False):
-        self._shotgun.reload()
-        for player in self.PLAYERS:
-            if hard:
-                player.reset(self._health_cap)
-            player.inventory.add_items(self._items_per_reload)
-
-        self._notify()
+        pass
 
     def execute(self, *args: str):
         item = args[0]
-        if item not in self._valid_item_actions:
+        if item not in self._actions:
+            self._notify(f"Invalid {item} input!")
             return
 
-        actor, target = self._get_roles()
-        if len(args) > 1 and args[1] == "self":
-            target = actor
-
-        result = self._valid_item_actions[item](actor, target).execute()
+        result = self._actions[item](self).execute()
         if result.end_turn:
             self._next_player()
+            if self.SHOTGUN.is_empty:
+                self.SHOTGUN.reload()
+                for p in self.PLAYERS:
+                    p.inventory.add_items(self.N_ITEMS)
+
+        if result.game_over:
+            self._get_winner()
 
         self._notify(result.response)

@@ -1,11 +1,12 @@
 from __future__ import annotations
-from typing import override
+from typing import Literal, Self, override
 
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import Container, HorizontalGroup
 from textual.message import Message
 from textual.reactive import reactive
+from textual.suggester import Suggester
 from textual.widget import Widget
 from textual.widgets import (
     Input,
@@ -15,6 +16,7 @@ from textual.widgets import (
 )
 from buckshot.engine import BuckshotEngine
 
+# --- Buckshot Game Container ---
 class GameContainer(Container):
     DEFAULT_CSS = """
     GameContainer {
@@ -32,141 +34,177 @@ class GameContainer(Container):
         self.border_title = f"󰍉 󱄾 {self.app.title} 󱆉 󰹈"
         self.border_subtitle = f"v{self.app.sub_title}"
 
-class BoardView(Container, BuckshotEngine.BuckshotObserver):
+class BoardView(Container):
     DEFAULT_CSS = """
     BoardView {
         width: 1fr;
         height: 1fr;
         border: round white;
         border-subtitle-align: center;
-        margin: 0 1 0 1;
+        margin: 1 2 0 2;
         layout: grid;
-        grid-size: 2;
+        grid-size: 2 2;
         grid-rows: 1fr auto;
+    }
+
+    BoardView .sub-panel {
+        width: 1fr;
+        align: center top;
+        border-top: solid white;
+        border-title-align: center;
+        padding: 1 2 0 2;
+    }
+
+    BoardView Static {
+        width: 1fr;
+        height: 1;
+    }
+
+    BoardView .right-align {
+        content-align: right middle;
+    }
+    """
+    BORDER_SUBTITLE = ">_"
+
+# --- Custom widgets ---
+class Logs(RichLog, BuckshotEngine.BuckshotObserver):
+    MessageType = Literal["", "info", "warn", "error", "success"]
+    DEFAULT_CSS = """
+    Logs {
+        background: $background;
+        margin: 0 1 0 1;
+        column-span: 2;
+    }
+
+    Logs:focus {
+        background: rgba(0, 0, 0, 0);
     }
     """
 
-    class Logs(RichLog):
-        DEFAULT_CSS = """
-        Logs {
-            background: $background;
-            margin: 0 1 0 1;
-            column-span: 2;
-        }
-
-        Logs:focus {
-            background: rgba(0, 0, 0, 0);
-        }
-        """
-        def __init__(self) -> None:
-            super().__init__(wrap=True, markup=True)
-
-        def update(self, state: BuckshotEngine.BuckshotState):
-            self.write(state.message)
-
-    class StatsReport(Widget):
-        BORDER_TITLE = " 󰷨 Board's Status "
-        DEFAULT_CSS = """
-        StatsReport {
-            width: 1fr;
-            align: center top;
-            border-top: solid white;
-            border-title-align: center;
-            padding: 1 2 0 2;
-        }
-
-        StatsReport HorizontalGroup {
-            height: 1;
-            margin-bottom: 1;
-            align: center middle;
-        }
-        """
-
-        chamber: reactive[str] = reactive("?")
-        turn: reactive[str] = reactive("?")
-        items: reactive[str] = reactive("?")
-        stage: reactive[str] = reactive("?")
-
-        def compose(self) -> ComposeResult:
-            for label, attr in [
-                ("Bullets Left:", "chamber"),
-                ("Current Turn:", "turn"),
-                ("Items Add:", "items"),
-                ("Stage:", "stage"),
-            ]:
-                with HorizontalGroup():
-                    yield Label(label)
-                    yield Static(getattr(self, attr), id=f"status-{attr}", classes="right-align")
-
-        def on_mount(self) -> None:
-            def w_func(attr: str):
-                return lambda v: self.query_one(f"#status-{attr}", Static).update(v)
-
-            for attr in ["chamber", "turn", "items", "stage"]:
-                self.watch(self, attr, w_func(attr))
-
-        def update(self, state: BuckshotEngine.BuckshotState):
-            self.chamber = " ".join(["󰲅"] * state.shotgun.bullets_left)
-            self.turn = state.players[state.turn].name
-            self.items = str(state.items_per_reload)
-            self.stage = state.stage
-
-    class PlayerInfo(Widget):
-        ICONS = {
-            "magnifier": "󰍉", 
-            "beer": "󱄖", 
-            "cigarette": "󱆉", 
-            "handsaw": "󰹈", 
-            "handcuff": "󱄾",
-        }
-
-        BORDER_TITLE = "  Player's Info "
-        DEFAULT_CSS = """
-        PlayerInfo {
-            width: 1fr;
-            align: center top;
-            border-top: solid white;
-            border-title-align: center;
-            padding: 1 2 0 2;
-        }
-        """
-
-        def compose(self) -> ComposeResult:
-            yield Static("[dim]Nothing to show yet![/dim]")
-
-        def update(self, state: BuckshotEngine.BuckshotState):
-            self.query_one(Static).update("Something to show!")
-
     def __init__(self, engine: BuckshotEngine) -> None:
-        super().__init__()
-        self.border_subtitle = ">_"
+        super().__init__(wrap=True, markup=True)
         engine.attach(self)
 
-    def compose(self) -> ComposeResult:
-        yield self.Logs()
-        yield self.StatsReport()
-        yield self.PlayerInfo()
-
-    def write(self, mess: str, type: str = ""):
-        log = self.query_one(self.Logs)
-
+    @override
+    def write(self, mess: str, type: MessageType = "", *arg, **kwargs) -> Self:
+        output = ""
         match type:
             case "error":
-                log.write("[bold magenta]" + mess)
+                output = "[bold red]Error: " + mess
+            case "success":
+                output = "[bold green]Done: " + mess
             case _:
-                log.write(mess)
+                output = mess
 
-    def clear(self):
-        self.query_one(self.Logs).clear()
-
-    def on_mount(self):
-        pass
+        return super().write(output)
 
     @override
-    def on_engine_update(self, state: BuckshotEngine.BuckshotState) -> None:
-        self.query("Logs, StatsReport, PlayerInfo").update(state)  # pyright: ignore[reportAttributeAccessIssue]
+    def on_engine_update(self, state: BuckshotEngine.BuckshotState):
+        self.write(f"Player executed a command: {state.response}", type="success")
 
-# --- Custom widgets ---
+class StatsReport(Widget, BuckshotEngine.BuckshotObserver):
+    BORDER_TITLE = " 󰷨 Board's Status "
+    DEFAULT_CSS = """
+    StatsReport HorizontalGroup {
+        height: 1;
+        margin-bottom: 1;
+        align: center middle;
+    }
+    """
+
+    chamber: reactive[str] = reactive("?")
+    turn: reactive[str] = reactive("?")
+    items: reactive[str] = reactive("?")
+    stage: reactive[str] = reactive("?")
+
+    def __init__(self, engine: BuckshotEngine) -> None:
+        super().__init__(classes="sub-panel")
+        engine.attach(self)
+        self.display = False
+
+    def compose(self) -> ComposeResult:
+        for label, attr in [
+            ("Bullets Left:", "chamber"),
+            ("Current Turn:", "turn"),
+            ("Items Add:", "items"),
+            ("Stage:", "stage"),
+        ]:
+            with HorizontalGroup():
+                yield Label(label)
+                yield Static(getattr(self, attr), id=f"status-{attr}", classes="right-align")
+
+    def on_mount(self) -> None:
+        def w_func(attr: str):
+            return lambda v: self.query_one(f"#status-{attr}", Static).update(v)
+
+        for attr in ["chamber", "turn", "items", "stage"]:
+            self.watch(self, attr, w_func(attr))
+
+    @override
+    def on_engine_update(self, state: BuckshotEngine.BuckshotState):
+        self.display = not False
+        self.chamber = " ".join(["󰲅"] * state.shotgun.bullets_left)
+        self.turn = state.players[state.turn].name.upper()
+        self.items = str(state.n_items)
+        self.stage = state.stage
+
+class PlayerInfo(Widget, BuckshotEngine.BuckshotObserver):
+    BORDER_TITLE = "  Player's Info "
+    ICONS = {
+        "magnifier": "󰍉", 
+        "beer": "󱄖", 
+        "cigarette": "󱆉", 
+        "handsaw": "󰹈", 
+        "handcuff": "󱄾",
+    }
+
+    DEFAULT_CSS = """
+    PlayerInfo {
+        height: auto;
+        width: 1fr;
+        padding-bottom: 1;
+    }
+
+    PlayerInfo Label {
+        width: auto;
+        padding-right: 1;
+    }
+
+    PlayerInfo HorizontalGroup {
+        margin-bottom: 1;
+    }
+    """
+
+    pname: reactive[str] = reactive("")
+    health: reactive[str] = reactive("")
+    inventory: reactive[str] = reactive("")
+
+    def __init__(self, engine: BuckshotEngine) -> None:
+        super().__init__(classes="sub-panel")
+        engine.attach(self)
+        self.display = False
+
+    def compose(self) -> ComposeResult:
+        with HorizontalGroup():
+            yield Label(f"{self.pname}:", id="player-pname")
+            yield Static(self.health, id="player-health")
+        yield Static(self.inventory, id="player-inventory")
+
+    def on_mount(self):
+        def w_func(attr: str):
+            return lambda v: self.query_one(f"#player-{attr}", Static).update(v)
+
+        for attr in ["pname", "health", "inventory"]:
+            self.watch(self, attr, w_func(attr))
+
+    @override
+    def on_engine_update(self, state: BuckshotEngine.BuckshotState):
+        self.display = not False
+        p_state = state.players[0]
+        self.pname = p_state.name.upper() + ":"
+        self.health = " ".join(["󱐋" * p_state.health])
+        self.inventory = " | ".join(f"{self.ICONS[k]} {v}" for k, v in p_state.inventory.items())
+
 class PlayerInput(Widget):
     DEFAULT_CSS = """
     PlayerInput {
@@ -201,9 +239,13 @@ class PlayerInput(Widget):
             self.args = args
             super().__init__()
 
+    def __init__(self, suggester: Suggester) -> None:
+        self.suggester = suggester
+        super().__init__()
+
     def compose(self) -> ComposeResult:
         yield Static(">")
-        yield Input(placeholder="Enter commands ...", compact=True)
+        yield Input(suggester=self.suggester, placeholder="Enter commands ...", compact=True)
 
     @on(Input.Submitted)
     def parse(self, event: Input.Submitted) -> None:
