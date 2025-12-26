@@ -82,7 +82,7 @@ class Inventory:
     def total(self) -> int:
         return sum(self.items.values())
 
-    def add_items(self, n_items: int):
+    def add(self, n_items: int):
         """Add N random items to inventory."""
         added_items: dict[str, int] = {}
         items_added = 0
@@ -111,13 +111,13 @@ class Inventory:
 class Player:
     turn: bool = True # immutable objects are re-created on instance calls
 
-    @dataclass
+    @dataclass(frozen=True)
     class PlayerState:
         name: str
         health: int
         inventory: dict[str, int]
 
-    def __init__(self, name:str, health:int):
+    def __init__(self, name: str, health: int):
         self.name: str = name
         self.health: int = health
         self.inventory: Inventory = Inventory() # mutable objects however are persisted on every instance calls

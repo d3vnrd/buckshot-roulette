@@ -12,6 +12,7 @@
     - [ ] Need a custom Suggester for player input
     - [ ] Better bound commands executed conditions
     - [ ] Feature: navigate between command history
+    - [ ] Current problems with the `execute` functions is that it violate the single handled principle. Itself has to handle a lot of state change which is not efficient at all. So I'm thinking to change to use Finite-state machine in combination with Command pattern to decoupled the game state
 
 - Notes:
     - Currently focus on Single Player vs Game Agent (Dealer) so `sign` function should only allow one Player's name at a time
@@ -19,4 +20,10 @@
     - Other utilities functions include: `clear`, `exit`, `reset` & `help`.
     - When a command is entered, it will be first validated by `CmdsValidator` for command verb, and number of allowed arguments. If passed, the command will be parsed using tokenized parser, and send over to app to execute. 
     - Keep the current UI, don't make any further changes until the engine is complete and player is able to execuate command properly
+
+- What I have applied so far:
+    - MUD's interaction style (command-focused) with Tokenized parser.
+    - Design Pattern: Command, Mediator + Observer.
+    - Treating the game as a Finite-state Machine (FSM), not a loop.
+    - 
 

@@ -1,10 +1,18 @@
 from __future__ import annotations
-from .entity import *
-from .action import *
+from abc import abstractmethod
+from dataclasses import dataclass
+from typing import Callable, TYPE_CHECKING
+
+from buckshot.entity import Dealer
+from buckshot.state import InitState
+
+if TYPE_CHECKING:
+    from buckshot.state import FSM
+    from buckshot.entity import Player, Shotgun
 
 class BuckshotEngine:
     @dataclass(frozen=True)
-    class BuckshotState:
+    class State:
         response: str
         stage: str
         turn: int
@@ -13,99 +21,74 @@ class BuckshotEngine:
         shotgun: Shotgun.ShotgunState
         winner: Player|None
 
-    class BuckshotObserver:
+    @dataclass(frozen=True)
+    class Command:
+        handler: Callable
+        turn_req: bool = False
+        board_req: bool = False
+        n_args: int = 0
+        once: bool = False
+        description: str = ""
+
+    @dataclass(frozen=True)
+    class Trigger:
+        item: str
+        target_id: int | None = None
+
+    class Observer:
         @abstractmethod
         def on_engine_update(
             self, 
-            state: BuckshotEngine.BuckshotState
+            state: BuckshotEngine.State
         ) -> None:
             pass
 
-    _observers: list[BuckshotObserver]
-    _actions: dict[str, type[Action]] = {
-        "magnifier": UseMagnifierAction,
-        "beer": UseBeerAction,
-        "handsaw": UseHandsawAction,
-        "cigarette": UseCigaretteAction,
-        "handcuff": UseHandcuffAction,
-        "gun": UseGunAction
-    }
+    _observers: list[Observer]
+    _state: FSM
 
     STAGE: int = 1
     TURN: int = 0
     MAX_HEALTH: int = 3 # I: 3, II: 4, III: 5
     N_ITEMS: int = 2 # I: 2, II: 4, III: 4
 
-    PLAYERS : tuple[Player, ...]
+    PLAYERS : list[Player]
     ACTOR: Player
     TARGET: Player
     SHOTGUN: Shotgun
 
     def __init__(self) -> None:
         self._observers = []
-        self.SHOTGUN = Shotgun()
+        self._state = InitState()
+        self.PLAYERS = []
 
     @property
     def ready(self):
         return True if hasattr(self, "PLAYERS") else False
 
     """Observer + Mediator = Transmitter"""
-    def attach(self, observer: BuckshotObserver) -> None:
+    def attach(self, observer: Observer) -> None:
         self._observers.append(observer)
 
-    def _notify(self, response: str = "") -> None:
+    def notify(self, response: str = "") -> None:
         for observer in self._observers:
-            observer.on_engine_update(
-                self.BuckshotState(
-                    response = response,
-                    stage = {1: "I", 2: "II", 3: "III"}.get(self.STAGE, "?"),
-                    turn = self.TURN,
-                    n_items=self.N_ITEMS,
-                    players = tuple(p.state for p in self.PLAYERS),
-                    shotgun = self.SHOTGUN.state,
-                    winner = self._get_winner()
-                )
-            )
+            pass
 
     """Business Logic Goes Here"""
-    def _get_winner(self):
-        return next((
-            p for p in self.PLAYERS 
-            if p.health > 0
-        ), None)
-
-    def _next_player(self):
-        pass
-
-    def _next_stage(self):
-        self.MAX_HEALTH += 1 if self.MAX_HEALTH <= 5 else 0
-        self.N_ITEMS += 2 if self.N_ITEMS <= 4 else 0
-        self.STAGE += 1
-
-    def sign(self, name: str):
-        self.PLAYERS = (
-            Player(name, self.MAX_HEALTH),
-            Dealer(self.MAX_HEALTH)
+    def assign(self, name: str):
+        """Add new player to PLAYERS list"""
+        self.PLAYERS.append(
+            Player(name, self.MAX_HEALTH)
+            if name else Dealer(self.MAX_HEALTH)
         )
 
-    def reset(self, hard: bool = False):
+    def next_player(self):
+        """Process to next player turn"""
         pass
 
-    def execute(self, *args: str):
-        item = args[0]
-        if item not in self._actions:
-            self._notify(f"Invalid {item} input!")
-            return
+    def next_stage(self):
+        """Process to next stage"""
+        pass
 
-        result = self._actions[item](self).execute()
-        if result.end_turn:
-            self._next_player()
-            if self.SHOTGUN.is_empty:
-                self.SHOTGUN.reload()
-                for p in self.PLAYERS:
-                    p.inventory.add_items(self.N_ITEMS)
-
-        if result.game_over:
-            self._get_winner()
-
-        self._notify(result.response)
+    def execute(self, *args: str) -> None:
+        """handle player intent and transfer it into Trigger"""
+        pass

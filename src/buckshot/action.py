@@ -1,23 +1,13 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Callable, override
+from typing import TYPE_CHECKING, override
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
-from buckshot.entity import Player, Shotgun
-
 if TYPE_CHECKING:
     from buckshot.engine import BuckshotEngine
+    from buckshot.entity import Player, Shotgun
 
-@dataclass
-class Command:
-    handler: Callable
-    turn_req: bool = False
-    board_req: bool = False
-    n_args: int = 0
-    once: bool = False
-    description: str = ""
-
-@dataclass
+@dataclass(frozen=True)
 class ActionResult:
     response: str = ""
     end_turn: bool = True
@@ -96,3 +86,12 @@ class UseHandcuffAction(Action):
     @override
     def execute(self):
         return ActionResult()
+
+VALID_ACTIONS: dict[str, type[Action]] = {
+    "magnifier": UseMagnifierAction,
+    "beer": UseBeerAction,
+    "handsaw": UseHandsawAction,
+    "cigarette": UseCigaretteAction,
+    "handcuff": UseHandcuffAction,
+    "gun": UseGunAction
+}

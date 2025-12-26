@@ -67,7 +67,7 @@ class BoardView(Container):
     BORDER_SUBTITLE = ">_"
 
 # --- Custom widgets ---
-class Logs(RichLog, BuckshotEngine.BuckshotObserver):
+class Logs(RichLog, BuckshotEngine.Observer):
     MessageType = Literal["", "info", "warn", "error", "success"]
     DEFAULT_CSS = """
     Logs {
@@ -99,10 +99,10 @@ class Logs(RichLog, BuckshotEngine.BuckshotObserver):
         return super().write(output)
 
     @override
-    def on_engine_update(self, state: BuckshotEngine.BuckshotState):
+    def on_engine_update(self, state: BuckshotEngine.State):
         self.write(f"Player executed a command: {state.response}", type="success")
 
-class StatsReport(Widget, BuckshotEngine.BuckshotObserver):
+class StatsReport(Widget, BuckshotEngine.Observer):
     BORDER_TITLE = " 󰷨 Board's Status "
     DEFAULT_CSS = """
     StatsReport HorizontalGroup {
@@ -141,14 +141,14 @@ class StatsReport(Widget, BuckshotEngine.BuckshotObserver):
             self.watch(self, attr, w_func(attr))
 
     @override
-    def on_engine_update(self, state: BuckshotEngine.BuckshotState):
+    def on_engine_update(self, state: BuckshotEngine.State):
         self.display = not False
         self.chamber = " ".join(["󰲅"] * state.shotgun.bullets_left)
         self.turn = state.players[state.turn].name.upper()
         self.items = str(state.n_items)
         self.stage = state.stage
 
-class PlayerInfo(Widget, BuckshotEngine.BuckshotObserver):
+class PlayerInfo(Widget, BuckshotEngine.Observer):
     BORDER_TITLE = "  Player's Info "
     ICONS = {
         "magnifier": "󰍉", 
@@ -198,7 +198,7 @@ class PlayerInfo(Widget, BuckshotEngine.BuckshotObserver):
             self.watch(self, attr, w_func(attr))
 
     @override
-    def on_engine_update(self, state: BuckshotEngine.BuckshotState):
+    def on_engine_update(self, state: BuckshotEngine.State):
         self.display = not False
         p_state = state.players[0]
         self.pname = p_state.name.upper() + ":"
