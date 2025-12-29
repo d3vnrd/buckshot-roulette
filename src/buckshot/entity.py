@@ -122,6 +122,10 @@ class Player:
         self.health: int = health
         self.inventory: Inventory = Inventory() # mutable objects however are persisted on every instance calls
 
+    def __hash__(self) -> int:
+        """Hash comparison for Set of unique player"""
+        return hash(self.name)
+
     @property
     def state(self) -> PlayerState:
         return self.PlayerState(

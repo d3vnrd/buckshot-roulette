@@ -9,20 +9,37 @@ if TYPE_CHECKING:
 
 class FSM(ABC):
     @abstractmethod
-    def handle(self, engine: BuckshotEngine, trigger: BuckshotEngine.Trigger) -> FSM | None:
+    def update(self, engine: BuckshotEngine, trigger: BuckshotEngine.Trigger | None) -> FSM:
+        pass
+
+    def on_enter(self, engine: BuckshotEngine) -> None:
+        pass
+
+    def on_exit(self, engine: BuckshotEngine) -> None:
         pass
 
 class InitState(FSM):
-    def handle(self, engine: BuckshotEngine, trigger: BuckshotEngine.Trigger) -> FSM | None:
+    def update(self, engine: BuckshotEngine, trigger: BuckshotEngine.Trigger | None) -> FSM:
         if not engine.ready:
             return self
 
         engine.SHOTGUN = Shotgun()
         return AwaitActionState()
 
+    def on_exit(self, engine: BuckshotEngine) -> None:
+        engine.notify("Good, you sign the contract. NOW, let's us begin!", type="done")
+
 class AwaitActionState(FSM):
-    def handle(self, engine: BuckshotEngine, trigger: BuckshotEngine.Trigger) -> FSM | None:
+    def on_enter(self, engine: BuckshotEngine) -> None:
+        if engine.SHOTGUN.is_empty:
+            engine.reset()
+
+    def update(self, engine: BuckshotEngine, trigger: BuckshotEngine.Trigger | None) -> FSM:
+        if trigger is None:
+            return self
+
         if trigger.item not in VALID_ACTIONS:
+            engine.notify("Invalid item use.", type="error")
             return self
 
         action = VALID_ACTIONS[trigger.item](engine)
@@ -30,24 +47,18 @@ class AwaitActionState(FSM):
 
 class ResolveActionState(FSM):
     class EndTurnState(FSM):
-        def handle(self, engine: BuckshotEngine, trigger: BuckshotEngine.Trigger) -> FSM | None:
+        def update(self, engine: BuckshotEngine, trigger: BuckshotEngine.Trigger | None) -> FSM:
             engine.next_player()
-
-            if engine.SHOTGUN.is_empty:
-                engine.SHOTGUN.reload()
-                for p in engine.PLAYERS:
-                    p.inventory.add(engine.N_ITEMS)
-
             return AwaitActionState()
 
     class GameOverState(FSM):
-        def handle(self, engine: BuckshotEngine, trigger: BuckshotEngine.Trigger) -> FSM | None:
+        def update(self, engine: BuckshotEngine, trigger: BuckshotEngine.Trigger | None) -> FSM:
             return self
 
     def __init__(self, action: Action) -> None:
         self.action = action
 
-    def handle(self, engine: BuckshotEngine, trigger: BuckshotEngine.Trigger) -> FSM | None:
+    def update(self, engine: BuckshotEngine, trigger: BuckshotEngine.Trigger | None) -> FSM:
         result = self.action.execute()
 
         if result.game_over:

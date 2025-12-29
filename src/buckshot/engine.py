@@ -1,13 +1,12 @@
 from __future__ import annotations
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Callable, TYPE_CHECKING
+from typing import Callable, TYPE_CHECKING, Literal
 
 from buckshot.entity import Dealer
-from buckshot.state import InitState
 
 if TYPE_CHECKING:
-    from buckshot.state import FSM
+    from buckshot.state import FSM, InitState
     from buckshot.entity import Player, Shotgun
 
 class BuckshotEngine:
@@ -43,42 +42,53 @@ class BuckshotEngine:
         ) -> None:
             pass
 
-    _observers: list[Observer]
-    _state: FSM
+    MessageType = Literal["error", "warn", "done", "info", ""]
 
     STAGE: int = 1
     TURN: int = 0
     MAX_HEALTH: int = 3 # I: 3, II: 4, III: 5
     N_ITEMS: int = 2 # I: 2, II: 4, III: 4
 
-    PLAYERS : list[Player]
+    PLAYERS : tuple[Player, ...]
     ACTOR: Player
     TARGET: Player
     SHOTGUN: Shotgun
 
     def __init__(self) -> None:
-        self._observers = []
-        self._state = InitState()
-        self.PLAYERS = []
+        self._observers: list[BuckshotEngine.Observer] = []
+        self._state: FSM = InitState()
 
     @property
     def ready(self):
-        return True if hasattr(self, "PLAYERS") else False
+        return hasattr(self, "PLAYERS")
 
     """Observer + Mediator = Transmitter"""
     def attach(self, observer: Observer) -> None:
         self._observers.append(observer)
 
-    def notify(self, response: str = "") -> None:
+    def notify(self, response: str = "", type: MessageType = "") -> None:
         for observer in self._observers:
             pass
 
     """Business Logic Goes Here"""
+    def reset(self, hard: bool = False):
+        if hard:
+            self.TURN = 0
+            for p in self.PLAYERS:
+                p.reset(self.MAX_HEALTH)
+
+        self.SHOTGUN.reload()
+        for p in self.PLAYERS:
+            p.inventory.add(self.N_ITEMS)
+
     def assign(self, name: str):
-        """Add new player to PLAYERS list"""
-        self.PLAYERS.append(
-            Player(name, self.MAX_HEALTH)
-            if name else Dealer(self.MAX_HEALTH)
+        """
+        Add new player to PLAYERS list;
+        Hardcode for 1v1 PVE mode only
+        """
+        self.PLAYERS = (
+            Player(name, self.MAX_HEALTH),
+            Dealer(self.MAX_HEALTH)
         )
 
     def next_player(self):
@@ -90,5 +100,18 @@ class BuckshotEngine:
         pass
 
     def execute(self, *args: str) -> None:
-        """handle player intent and transfer it into Trigger"""
-        pass
+        """Self state advance with While loop"""
+        while True:
+            new_state = self._state.update(
+                engine=self,
+                trigger=self.Trigger(args[0]) 
+                if args else None
+            )
+
+            if new_state is self._state:
+                break
+
+            self._state.on_exit(self)
+            self._state = new_state
+            self._state.on_enter(self)
+
