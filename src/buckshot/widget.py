@@ -1,6 +1,7 @@
 from __future__ import annotations
-from typing import Literal, Self, override
+from typing import Self, override
 
+from rich.console import RenderableType
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import Container, HorizontalGroup
@@ -68,7 +69,6 @@ class BoardView(Container):
 
 # --- Custom widgets ---
 class Logs(RichLog, BuckshotEngine.Observer):
-    MessageType = Literal["", "info", "warn", "error", "success"]
     DEFAULT_CSS = """
     Logs {
         background: $background;
@@ -86,21 +86,23 @@ class Logs(RichLog, BuckshotEngine.Observer):
         engine.attach(self)
 
     @override
-    def write(self, mess: str, type: MessageType = "", *arg, **kwargs) -> Self:
-        output = ""
-        match type:
-            case "error":
-                output = "[bold red]Error: " + mess
-            case "success":
-                output = "[bold green]Done: " + mess
-            case _:
-                output = mess
+    def write(self, mess: RenderableType | object, type: BuckshotEngine.MsgType = "", *args, **kwargs) -> Self:
+        if isinstance(mess, str):
+            match type:
+                case "error":
+                    mess = "[bold red]E: " + mess
+                case "done":
+                    mess = "[bold green]S: " + mess
+                case "info":
+                    mess = "[bold blue]I: " + mess
+                case _:
+                    pass
 
-        return super().write(output)
+        return super().write(mess)
 
     @override
     def on_engine_update(self, state: BuckshotEngine.State):
-        self.write(f"Player executed a command: {state.response}", type="success")
+        self.write(f"Player executed a command: {state.response}", type="done")
 
 class StatsReport(Widget, BuckshotEngine.Observer):
     BORDER_TITLE = " 󰷨 Board's Status "
@@ -253,5 +255,5 @@ class PlayerInput(Widget):
             return
 
         cmd = event.value.lower().strip().split()
-        action, args = cmd[0], cmd[1:]
+        action, args = cmd[0], cmd[1:] # empty if string contains only 1 word
         self.post_message(self.Submitted(event.input, action, args))

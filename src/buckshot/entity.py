@@ -1,3 +1,4 @@
+from __future__ import annotations
 from dataclasses import dataclass
 from collections import deque
 import random as rand
@@ -107,6 +108,45 @@ class Inventory:
     def has_item(self, item: str) -> bool:
         """Check if item is in inventory"""
         return self.items.get(item, 0) > 0
+
+class Coordinator:
+    """A Circular Queue to manage player's turn"""
+    def __init__(self, players: dict[str, Player]) -> None:
+        self._queue: deque = deque(set(players.values()))
+        rand.shuffle(self._queue)
+
+    def __iter__(self):
+        return self
+
+    def __len__(self) -> int:
+        return len([p for p in self._queue if p.health > 0])
+
+    def __bool__(self) -> bool:
+        """Return True if coordinator has players"""
+        return len(self._queue) > 0
+
+    def __next__(self):
+        if not self._queue:
+            raise StopIteration
+
+        while len(self._queue) > 1:
+            player = self._queue.popleft()
+
+            # remove dead player
+            if player.health <= 0: 
+                continue
+
+            # skip while marking player next turn valid
+            if not player.turn: 
+                player.turn = True
+                self._queue.append(player)
+                continue
+
+            self._queue.append(player)
+            return player
+
+        # return the last player when queue has 1 player left
+        return self._queue.pop()
 
 class Player:
     turn: bool = True # immutable objects are re-created on instance calls

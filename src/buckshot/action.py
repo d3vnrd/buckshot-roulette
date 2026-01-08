@@ -3,26 +3,23 @@ from typing import TYPE_CHECKING, override
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
+from .util import *
+
 if TYPE_CHECKING:
-    from buckshot.engine import BuckshotEngine
-    from buckshot.entity import Player, Shotgun
+    from .engine import BuckshotEngine
+    from .entity import Player, Shotgun
 
 @dataclass(frozen=True)
 class ActionResult:
     response: str = ""
     end_turn: bool = True
     skip_turn: bool = False
-    game_over: bool = False
 
 class Action(ABC):
-    ACTOR: Player
-    TARGET: Player
-    SHOTGUN: Shotgun
-
     def __init__(self, engine: BuckshotEngine):
-        self.ACTOR = engine.ACTOR
-        self.TARGET = engine.TARGET
-        self.SHOTGUN = engine.SHOTGUN
+        self.ACTOR: Player = engine.ACTOR
+        self.TARGET: Player = engine.TARGET
+        self.SHOTGUN: Shotgun = engine.SHOTGUN
 
     @abstractmethod
     def execute(self) -> ActionResult:
@@ -34,19 +31,24 @@ class UseGunAction(Action):
     @override
     def execute(self):
         shell = self.SHOTGUN.eject()
-        skip_turn = False
+        self_target = self.TARGET is self.ACTOR
 
         if shell is None:
-            pass
+            raise EmptyChamberError
 
-        if shell is True:
-            self.TARGET.health -= self.SHOTGUN.damage
-
-        if shell is False and self.TARGET is self.ACTOR:
-            skip_turn = True
+        if shell is False and self_target:
+            return ActionResult(
+                response="Blank shell, skip next player's turn", 
+                skip_turn=True
+            )
 
         self.SHOTGUN.damage = 1
-        return ActionResult(response="Use Gun", skip_turn=skip_turn)
+        dmg = self.SHOTGUN.damage
+        self.TARGET.health -= dmg
+        return ActionResult(
+            response=f"LIVE shell, {self.ACTOR.name} deals {dmg} to {"themself" if self_target else self.TARGET.name}", 
+        )
+
 
 # Failed cases: 
 # - Empty chamber (should never happen)
